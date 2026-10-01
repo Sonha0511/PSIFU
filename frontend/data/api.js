@@ -1,0 +1,2 @@
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
+export async function request(path, options = {}) { const response = await fetch(`${API_URL}${path}`, { headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }, ...options }); const data = await response.json(); if (!response.ok) throw Object.assign(new Error(data.msg || 'Không thể kết nối máy chủ.'), { data }); return data; }

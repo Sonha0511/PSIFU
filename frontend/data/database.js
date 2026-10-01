@@ -1,0 +1,29 @@
+import { request } from './api';
+
+export const Database = {
+  getAllUsers: () => request('/users'),
+  getCourses: (term, major = 'Kỹ thuật phần mềm', specialization = 'NodeJS') => request(`/courses?term=${encodeURIComponent(term)}&major=${encodeURIComponent(major)}&specialization=${encodeURIComponent(specialization)}`),
+  saveUser: async user => { try { return await request('/users', { method: 'POST', body: JSON.stringify(user) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
+  checkLogin: async (email, password) => { try { return await request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
+  sendEmailVerification: async email => { try { return await request('/auth/email-verification/send', { method: 'POST', body: JSON.stringify({ email }) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
+  verifyEmailCode: async (email, code) => { try { return await request('/auth/email-verification/verify', { method: 'POST', body: JSON.stringify({ email, code }) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
+  sendPasswordResetCode: async email => { try { return await request('/auth/password-reset/send', { method: 'POST', body: JSON.stringify({ email }) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
+  verifyPasswordResetCode: async (email, code) => { try { return await request('/auth/password-reset/verify', { method: 'POST', body: JSON.stringify({ email, code }) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
+  completePasswordReset: async (email, code, password) => { try { return await request('/auth/password-reset/complete', { method: 'POST', body: JSON.stringify({ email, code, password }) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
+  updateUserData: async (email, fields) => { try { await request(`/users/${encodeURIComponent(email)}`, { method: 'PATCH', body: JSON.stringify(fields) }); return true; } catch { return false; } },
+  updateUserRole: async (email, role) => { try { await request(`/users/${encodeURIComponent(email)}/role`, { method: 'PATCH', body: JSON.stringify({ role }) }); return true; } catch { return false; } },
+  getQuestions: () => request('/questions'), saveQuestion: question => request('/questions', { method: 'POST', body: JSON.stringify(question) }),
+  getBookings: () => request('/bookings'),
+  saveBooking: async booking => { try { return await request('/bookings', { method: 'POST', body: JSON.stringify(booking) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
+  updateBookingStatus: async (id, status) => { try { await request(`/bookings/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }); return true; } catch { return false; } },
+  getChatMessages: async (roomId, seed = []) => { const messages = await request(`/chats/${roomId}`); return messages.length ? messages : seed; },
+  saveChatMessage: (roomId, message) => request(`/chats/${roomId}`, { method: 'POST', body: JSON.stringify(message) }),
+  getPremiumPlan: () => request('/premium/plan'),
+  getSubscription: email => request(`/premium/subscription/${encodeURIComponent(email)}`),
+  activatePremiumMock: email => request('/premium/mock-payment/complete', { method: 'POST', body: JSON.stringify({ email }) }),
+  requestQuizAccess: email => request('/quiz/access', { method: 'POST', body: JSON.stringify({ email }) }),
+  getPremiumDocuments: email => request(`/premium/documents/${encodeURIComponent(email)}`),
+  getNotifications: email => request(`/notifications/${encodeURIComponent(email)}`),
+  markNotificationRead: id => request(`/notifications/${id}/read`, { method: 'PATCH' }),
+  getMentorDocuments: () => request('/mentor-documents'), saveMentorDocument: document => request('/mentor-documents', { method: 'POST', body: JSON.stringify(document) })
+};

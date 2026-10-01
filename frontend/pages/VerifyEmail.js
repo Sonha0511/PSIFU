@@ -1,0 +1,40 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, Image, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Database } from '../data/database';
+
+export default function VerifyEmail({ email, onBack, onVerified, purpose = 'verify-email', autoSend = true }) {
+  const [digits, setDigits] = useState(['', '', '', '', '', '']);
+  const [resendText, setResendText] = useState('Gửi lại mã');
+  const [message, setMessage] = useState(''); const [loading, setLoading] = useState(false);
+  const refs = useRef([]);
+  const sendCode = async (isResend = false) => { setLoading(true); const result = purpose === 'password-reset' ? await Database.sendPasswordResetCode(email) : await Database.sendEmailVerification(email); setLoading(false); if (result.success) { setResendText('Đã gửi lại mã'); setMessage(isResend ? 'Mã mới đã được gửi. Vui lòng kiểm tra email.' : 'Mã OTP đã được gửi tới email của bạn.'); } else setMessage(result.msg || 'Không thể gửi mã lúc này.'); };
+  useEffect(() => { if (autoSend) sendCode(); }, [autoSend]);
+  const updateDigit = (value, index) => {
+    const digit = value.replace(/\D/g, '').slice(-1);
+    const next = [...digits]; next[index] = digit; setDigits(next);
+    if (digit && index < 5) refs.current[index + 1]?.focus();
+  };
+  const verify = async () => {
+    if (digits.join('').length !== 6) return Alert.alert('Chưa đủ mã', 'Vui lòng nhập đủ 6 chữ số xác minh.');
+    setLoading(true); const code = digits.join(''); const result = purpose === 'password-reset' ? await Database.verifyPasswordResetCode(email, code) : await Database.verifyEmailCode(email, code); setLoading(false);
+    if (!result.success) return setMessage(result.msg || 'Mã OTP không hợp lệ.');
+    const successMessage = purpose === 'password-reset' ? 'Mã OTP chính xác. Hãy đặt mật khẩu mới.' : 'Cảm ơn bạn đã xác minh email. Hãy đăng nhập để bắt đầu với PSIFU.';
+    Alert.alert('Xác minh thành công', successMessage, [{ text: 'Tiếp tục', onPress: () => onVerified(email, code) }]);
+  };
+  const resend = () => { setDigits(['', '', '', '', '', '']); refs.current[0]?.focus(); sendCode(true); };
+  return <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <TouchableOpacity style={styles.back} onPress={onBack}><Ionicons name="arrow-back" size={21} color="#155eef" /></TouchableOpacity>
+    <View style={styles.content}>
+      <View style={styles.brand}><Image source={require('../assets/logo.png')} style={styles.logo} resizeMode="contain" /><Text style={styles.brandName}>PSIFU</Text></View>
+      <View style={styles.illustration}><View style={styles.mailBox}><Ionicons name="mail" size={42} color="#fff" /><View style={styles.badge}><Ionicons name="shield-checkmark" size={17} color="#fff" /></View></View></View>
+      <Text style={styles.title}>{purpose === 'password-reset' ? 'Xác minh đặt lại mật khẩu' : 'Xác minh email'}</Text><Text style={styles.subtitle}>Nhập mã 6 chữ số được gửi tới email của bạn.</Text>
+      <View style={styles.emailPill}><Ionicons name="mail-outline" size={15} color="#155eef" /><Text style={styles.email} numberOfLines={1}>{email || 'email@example.com'}</Text></View>
+      <View style={styles.codeRow}>{digits.map((digit, index) => <TextInput key={index} ref={node => { refs.current[index] = node; }} style={[styles.codeInput, digit && styles.codeFilled]} value={digit} onChangeText={value => updateDigit(value, index)} keyboardType="number-pad" maxLength={1} selectTextOnFocus />)}</View>
+      <TouchableOpacity style={[styles.verifyButton, (digits.join('').length !== 6 || loading) && styles.verifyDisabled]} onPress={verify} disabled={loading}><Text style={styles.verifyText}>{loading ? 'ĐANG XỬ LÝ...' : 'XÁC MINH'}</Text></TouchableOpacity>
+      {message ? <Text style={styles.message}>{message}</Text> : null}
+      <Text style={styles.help}>Chưa nhận được mã?</Text><TouchableOpacity onPress={resend}><Text style={styles.resend}>{resendText}</Text></TouchableOpacity>
+    </View>
+  </KeyboardAvoidingView>;
+}
+const styles = StyleSheet.create({ screen: { flex: 1, backgroundColor: '#f7f9ff' }, back: { width: 43, height: 43, marginLeft: 20, marginTop: 50, borderRadius: 13, backgroundColor: '#e8efff', justifyContent: 'center', alignItems: 'center' }, content: { flex: 1, alignItems: 'center', paddingHorizontal: 28, paddingTop: 16 }, brand: { flexDirection: 'row', alignItems: 'center', gap: 7 }, logo: { width: 42, height: 42 }, brandName: { color: '#155eef', fontSize: 21, fontWeight: '900', letterSpacing: 2 }, illustration: { marginTop: 49, width: 122, height: 105, borderRadius: 25, backgroundColor: '#e7f0ff', alignItems: 'center', justifyContent: 'center' }, mailBox: { width: 76, height: 58, backgroundColor: '#2563eb', borderRadius: 16, alignItems: 'center', justifyContent: 'center', shadowColor: '#2563eb', shadowOpacity: .25, shadowRadius: 12, elevation: 4 }, badge: { position: 'absolute', right: -9, bottom: -9, width: 31, height: 31, borderRadius: 16, backgroundColor: '#06b6d4', borderWidth: 3, borderColor: '#e7f0ff', alignItems: 'center', justifyContent: 'center' }, title: { color: '#102a56', fontSize: 28, fontWeight: '800', marginTop: 34 }, subtitle: { color: '#64748b', fontSize: 14, lineHeight: 21, textAlign: 'center', marginTop: 9, maxWidth: 275 }, emailPill: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: '#e8efff', paddingHorizontal: 14, paddingVertical: 9, borderRadius: 22, marginTop: 20, maxWidth: '100%' }, email: { color: '#155eef', fontWeight: '700', fontSize: 13 }, codeRow: { flexDirection: 'row', gap: 8, marginTop: 36 }, codeInput: { width: 44, height: 54, borderRadius: 12, borderWidth: 1, borderColor: '#ccd7ea', backgroundColor: '#fff', color: '#155eef', textAlign: 'center', fontWeight: '800', fontSize: 22 }, codeFilled: { borderColor: '#155eef', backgroundColor: '#eff6ff' }, verifyButton: { width: '100%', height: 54, borderRadius: 14, backgroundColor: '#155eef', justifyContent: 'center', alignItems: 'center', marginTop: 28 }, verifyDisabled: { backgroundColor: '#a8c5fa' }, verifyText: { color: '#fff', fontWeight: '800', fontSize: 14 }, message: { color: '#2563eb', fontSize: 12, textAlign: 'center', marginTop: 13 }, help: { color: '#718096', fontSize: 13, marginTop: 25 }, resend: { color: '#155eef', fontWeight: '800', marginTop: 8, fontSize: 13 } });
