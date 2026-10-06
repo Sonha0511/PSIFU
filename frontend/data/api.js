@@ -8,7 +8,9 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 // Free Render instances can sleep after inactivity. Network/5xx retries let the
 // first app request wait for the service to wake instead of failing immediately.
 export async function request(path, options = {}) {
-  const maxAttempts = 3;
+  // Render Free can need close to a minute to wake after inactivity.
+  // Keep the user on the existing loading state instead of failing after a few seconds.
+  const maxAttempts = 8;
   let lastError;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     try {
@@ -26,7 +28,7 @@ export async function request(path, options = {}) {
       lastError = error;
       if (attempt === maxAttempts - 1) break;
     }
-    await wait((attempt + 1) * 2500);
+    await wait(5000);
   }
-  throw Object.assign(new Error('Máy chủ đang khởi động hoặc chưa thể kết nối. Vui lòng thử lại sau ít phút.'), { cause: lastError });
+  throw Object.assign(new Error('Máy chủ chưa phản hồi sau khoảng một phút. Vui lòng kiểm tra mạng rồi thử lại.'), { cause: lastError });
 }
