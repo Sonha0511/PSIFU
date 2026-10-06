@@ -25,5 +25,13 @@ export const Database = {
   getPremiumDocuments: email => request(`/premium/documents/${encodeURIComponent(email)}`),
   getNotifications: email => request(`/notifications/${encodeURIComponent(email)}`),
   markNotificationRead: id => request(`/notifications/${id}/read`, { method: 'PATCH' }),
-  getMentorDocuments: () => request('/mentor-documents'), saveMentorDocument: document => request('/mentor-documents', { method: 'POST', body: JSON.stringify(document) })
+  getMentorDocuments: () => request('/mentor-documents'), saveMentorDocument: document => request('/mentor-documents', { method: 'POST', body: JSON.stringify(document) }),
+  getCloudinaryUploadSignature: (email, fileName) => request('/uploads/cloudinary-signature', { method:'POST', body:JSON.stringify({email,fileName}) }),
+  createPayosTopup: (email, coins) => request('/payments/payos/topups', { method: 'POST', body: JSON.stringify({ email, coins }) }),
+  getPayosOrder: orderCode => request(`/payments/payos/orders/${encodeURIComponent(orderCode)}`),
+  requestMentorWithdrawal: (email, amount) => request('/wallet/withdraw', { method: 'POST', body: JSON.stringify({ email, amount }) }),
+  getUserSettings: email => request(`/users/${encodeURIComponent(email)}/settings`),
+  saveUserSettings: (email, settings) => request(`/users/${encodeURIComponent(email)}/settings`, { method: 'PATCH', body: JSON.stringify(settings) }),
+  getSupportTickets: email => request(`/support-tickets/${encodeURIComponent(email)}`),
+  createSupportTicket: ticket => request('/support-tickets', { method: 'POST', body: JSON.stringify(ticket) })
 };

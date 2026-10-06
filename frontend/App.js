@@ -10,22 +10,31 @@ import Gamification from './components/Gamification';
 import Community from './components/Community'; 
 import AdminDashboard from './components/AdminDashboard';
 import MentorDashboard from './components/MentorDashboard';
+import MentorHub from './components/MentorHub';
+import MentorCommunity from './components/MentorCommunity';
+import MentorDocuments from './components/MentorDocuments';
+import MentorProfileHub from './components/MentorProfileHub';
 import HomeDashboard from './components/HomeDashboard';
 import FindMentor from './components/FindMentor';
 import DocumentDetail from './components/DocumentDetail';
+import DocumentReader from './components/DocumentReader';
+import MyDocuments from './components/MyDocuments';
+import Notifications from './components/Notifications';
 import QuizScreen from './components/QuizScreen';
 import ProfileHub from './components/ProfileHub';
 import MentorInbox from './components/MentorInbox';
 import BookingHub from './components/BookingHub';
 import ToastNotice from './components/ToastNotice';
-import MockVnPayPayment from './components/MockVnPayPayment';
+import PayOSPayment from './components/PayOSPayment';
 import AppointmentFlow from './components/AppointmentFlow';
+import TopUpScreen from './components/TopUpScreen';
 
 import Login from './pages/Login';
 import Register from './pages/Register';
 import VerifyEmail from './pages/VerifyEmail';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import ChangePassword from './pages/ChangePassword';
 import ProfileSetup from './pages/ProfileSetup';
 import Onboarding from './pages/Onboarding';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -63,6 +72,9 @@ export default function App() {
   const [courses, setCourses] = useState([]);
   const [selectedLearningDoc, setSelectedLearningDoc] = useState(null);
   const [selectedDocumentDetail, setSelectedDocumentDetail] = useState(null);
+  const [selectedDocumentReader, setSelectedDocumentReader] = useState(null);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const [selectedQuizDocument, setSelectedQuizDocument] = useState(null);
   const [documentRatings, setDocumentRatings] = useState({});
   const [documentSearch, setDocumentSearch] = useState('');
@@ -87,7 +99,7 @@ export default function App() {
   const [selectedMentorFee, setSelectedMentorFee] = useState(50);
   const [showTopUpModal, setShowTopUpModal] = useState(false);
   const [topUpAmount, setTopUpAmount] = useState(100);
-  const [showMockVnPay, setShowMockVnPay] = useState(false);
+  const [showPayOSPayment, setShowPayOSPayment] = useState(false);
   const [topUpStandalone, setTopUpStandalone] = useState(false);
 
   // Cấu hình giao diện Sáng / Tối (Dark Mode)
@@ -138,7 +150,7 @@ export default function App() {
     setCurrentUser(user);
     setUserRole(user.role || 'mentee');
     Database.getAllUsers().then(users => setMentorProfiles(users.filter(item => item.role === 'mentor').map((item, index) => ({ id: item.email, name: item.fullName, role: item.specialty || 'Mentor PSIFU', avatar: '👨‍🏫', bio: `Mentor chuyên môn ${item.specialty || 'đa ngành'}.`, post: 'Sẵn sàng hỗ trợ mentee.', courses: item.email === 'mentor.se@psifu.vn' ? ['PRF192', 'PRO192', 'CSD201', 'DBI202', 'SDN302'] : item.email === 'mentor.data@psifu.vn' ? ['MAE101', 'MAD101', 'DBI202'] : ['MKT101'], availableSlots: index === 2 ? [] : index === 1 ? ['09:00 - 10:00', '19:00 - 20:00'] : ['09:00 - 10:00', '14:00 - 15:00', '19:00 - 20:00'], fee: index === 1 ? 40 : 50 }))));
-    Database.getBookings().then(bookings => setMyBookings(bookings.filter(item => item.menteeName === user.fullName)));
+    Database.getBookings().then(bookings => setMyBookings(user.role === 'mentor' ? bookings.filter(item => item.mentorEmail === user.email) : bookings.filter(item => item.menteeName === user.fullName)));
     Database.getMentorDocuments().then(setMentorDocuments);
     setEmail(user.email);
     setFullName(user.fullName);
@@ -356,15 +368,20 @@ export default function App() {
 
   if (showOnboarding) return <ProfileSetup onComplete={handleCompleteOnboarding} />;
 
+  if (showChangePassword) return <SafeAreaView style={[styles.container, styles.lightContainer]}><ChangePassword email={email} onBack={() => setShowChangePassword(false)} /></SafeAreaView>;
+  if (showNotifications) return <SafeAreaView style={[styles.container, styles.lightContainer]}><Notifications email={email} onBack={() => setShowNotifications(false)} /></SafeAreaView>;
+
   if (selectedQuizDocument) return <SafeAreaView style={[styles.container, styles.lightContainer]}><QuizScreen document={selectedQuizDocument} onBack={() => setSelectedQuizDocument(null)} onComplete={() => setSelectedQuizDocument(null)} /><ToastNotice notice={notice} onClose={() => setNotice(null)} /></SafeAreaView>;
 
-  if (selectedDocumentDetail) return <SafeAreaView style={[styles.container, styles.lightContainer]}><DocumentDetail document={selectedDocumentDetail} unlocked={!!unlockedDocs[selectedDocumentDetail.id]} rating={documentRatings[selectedDocumentDetail.id] || 0} onBack={() => setSelectedDocumentDetail(null)} onUnlock={() => handleUnlockDoc(selectedDocumentDetail.id, selectedDocumentDetail.fee || 0)} onQuiz={() => setSelectedQuizDocument(selectedDocumentDetail)} onRate={(rating) => handleRateDocument(selectedDocumentDetail.id, rating)} /><ToastNotice notice={notice} onClose={() => setNotice(null)} /></SafeAreaView>;
-  if (showMockVnPay) return <SafeAreaView style={[styles.container, styles.lightContainer]}><MockVnPayPayment coins={topUpAmount} onCancel={() => setShowMockVnPay(false)} onPaid={async () => { const nextXu=userXu+topUpAmount; setUserXu(nextXu); await Database.updateUserData(email,{userXu:nextXu}); setShowMockVnPay(false); setShowTopUpModal(false); if(!topUpStandalone)setShowBookingModal(true); setNotice({title:'Nạp Xu thành công',message:`Đã cộng ${topUpAmount} Xu vào ví PSIFU.`}); }} /></SafeAreaView>;
+  if (selectedDocumentReader) return <SafeAreaView style={[styles.container, styles.lightContainer]}><DocumentReader document={selectedDocumentReader} onBack={() => setSelectedDocumentReader(null)} onQuiz={() => openAiQuiz(selectedDocumentReader)} /><ToastNotice notice={notice} onClose={() => setNotice(null)} /></SafeAreaView>;
+  if (selectedDocumentDetail) return <SafeAreaView style={[styles.container, styles.lightContainer]}><DocumentDetail document={selectedDocumentDetail} unlocked={!!unlockedDocs[selectedDocumentDetail.id] || Number(selectedDocumentDetail.fee || 0) === 0} rating={documentRatings[selectedDocumentDetail.id] || 0} onBack={() => setSelectedDocumentDetail(null)} onUnlock={() => handleUnlockDoc(selectedDocumentDetail.id, selectedDocumentDetail.fee || 0)} onRead={() => setSelectedDocumentReader(selectedDocumentDetail)} onQuiz={() => openAiQuiz(selectedDocumentDetail)} onRate={(rating) => handleRateDocument(selectedDocumentDetail.id, rating)} /><ToastNotice notice={notice} onClose={() => setNotice(null)} /></SafeAreaView>;
+  if (showTopUpModal) return <SafeAreaView style={[styles.container, styles.lightContainer]}><TopUpScreen balance={userXu} amount={topUpAmount} requiredFee={topUpStandalone ? 0 : selectedMentorFee} onChangeAmount={setTopUpAmount} onClose={() => { setShowTopUpModal(false); if (!topUpStandalone) setShowBookingModal(true); }} onContinue={() => setShowPayOSPayment(true)} /></SafeAreaView>;
+  if (showPayOSPayment) return <SafeAreaView style={[styles.container, styles.lightContainer]}><PayOSPayment coins={topUpAmount} email={email} onCancel={() => setShowPayOSPayment(false)} onPaid={(payment) => { setUserXu(payment.userXu); setCurrentUser(previous => ({...previous,userXu:payment.userXu})); setShowPayOSPayment(false); setShowTopUpModal(false); if(!topUpStandalone)setShowBookingModal(true); setNotice({title:'Nạp Xu thành công',message:`PayOS đã xác nhận và cộng ${payment.coins} Xu vào ví PSIFU.`}); }} /></SafeAreaView>;
   if (showBookingModal) return <SafeAreaView style={[styles.container, styles.lightContainer]}><AppointmentFlow mentor={selectedMentor} course={selectedBookingCourse} fee={selectedMentorFee} slots={selectedMentorSlots} onCancel={() => setShowBookingModal(false)} onSubmit={submitBooking} /></SafeAreaView>;
 
   return (
     <SafeAreaView style={[styles.container, themeContainer]}>
-      {!['home', 'community', 'chat', 'schedule'].includes(currentTab) && <Header studentName={fullName} userXu={userXu} />}
+      {!['home', 'community', 'chat', 'schedule', 'docs'].includes(currentTab) && <Header studentName={fullName} userXu={userXu} />}
       
       {/* POPUP ONBOARDING LẦN ĐẦU ĐĂNG NHẬP */}
       <Modal visible={showOnboarding} animationType="slide" transparent={true}>
@@ -437,9 +454,9 @@ export default function App() {
             <View style={styles.topUpNotice}><Text style={styles.topUpNoticeText}>Lịch hẹn này cần {selectedMentorFee} Xu. Bạn còn thiếu {Math.max(0, selectedMentorFee - userXu)} Xu.</Text></View>
             <Text style={styles.popupLabel}>Chọn gói Xu</Text>
             <View style={styles.packageGrid}>{[50, 100, 200, 500].map(amount => <TouchableOpacity key={amount} onPress={() => setTopUpAmount(amount)} style={[styles.packageCard, topUpAmount === amount && styles.packageActive]}><Text style={styles.packageCoin}>🪙 {amount} Xu</Text><Text style={styles.packageSub}>{amount >= selectedMentorFee - userXu ? 'Đủ cho lịch hẹn' : 'Nạp thêm để tiếp tục'}</Text></TouchableOpacity>)}</View>
-            <View style={styles.paymentRow}><Ionicons name="qr-code-outline" size={23} color="#60A5FA" /><View><Text style={styles.paymentTitle}>VNPAY</Text><Text style={styles.paymentSub}>Thanh toán QR</Text></View><Text style={styles.selectedPayment}>Đã chọn</Text></View>
+            <View style={styles.paymentRow}><Ionicons name="qr-code-outline" size={23} color="#60A5FA" /><View><Text style={styles.paymentTitle}>PayOS</Text><Text style={styles.paymentSub}>Thanh toán QR bảo mật</Text></View><Text style={styles.selectedPayment}>Đã chọn</Text></View>
             <View style={styles.topUpSummary}><Text style={styles.summaryText}>Nạp thêm <Text style={styles.summaryStrong}>{topUpAmount} Xu</Text></Text><Text style={styles.summaryText}>Số dư sau nạp <Text style={styles.summaryGreen}>{userXu + topUpAmount} Xu</Text></Text></View>
-            <TouchableOpacity style={styles.btnPopupSubmit} onPress={() => setShowMockVnPay(true)}><Text style={{ color: '#fff', fontWeight: '800' }}>TIẾP TỤC VỚI VNPAY</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.btnPopupSubmit} onPress={() => setShowPayOSPayment(true)}><Text style={{ color: '#fff', fontWeight: '800' }}>TIẾP TỤC VỚI PAYOS</Text></TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -448,7 +465,7 @@ export default function App() {
       <Modal visible={showEditProfileModal} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>👤 Chỉnh Sửa Hồ Sơ</Text>
+            <Text style={styles.modalTitle}>👤 Edit Profile</Text>
             <TouchableOpacity style={styles.avatarPicker} onPress={pickAvatar}>
               {avatarUrl ? <Image source={{ uri: avatarUrl }} style={styles.avatarPreview} /> : <View style={styles.avatarFallback}><Text style={styles.avatarFallbackText}>{(fullName || 'PS').split(' ').map(item => item[0]).slice(-2).join('')}</Text></View>}
               <View style={styles.avatarEditBadge}><Ionicons name="camera" size={14} color="#FFFFFF" /></View>
@@ -476,8 +493,8 @@ export default function App() {
 
       {/* NỘI DUNG CHÍNH CỦA APP ĐIỀU PHỐI QUA TAB */}
       <View style={{ flex: 1 }}>
-        {currentTab === 'home' && userRole !== 'mentor' && <HomeDashboard fullName={fullName} userXu={userXu} currentTerm={currentTerm} mentors={mentorProfiles} bookings={myBookings} courses={courses} recentDocuments={mentorDocuments} onNavigate={(tab) => { setCurrentTab(tab); if (tab === 'docs') setActiveFilterTerm(currentTerm); }} onBook={triggerBooking} />}
-        {currentTab === 'home' && userRole === 'mentor' && <MentorDashboard mentor={currentUser} screen="community" />}
+        {currentTab === 'home' && userRole !== 'mentor' && <HomeDashboard fullName={fullName} userEmail={email} userXu={userXu} hasCheckedInToday={hasCheckedInToday} currentTerm={currentTerm} mentors={mentorProfiles} bookings={myBookings} courses={courses} recentDocuments={mentorDocuments} onNotifications={() => setShowNotifications(true)} onNavigate={(tab) => { setCurrentTab(tab); if (tab === 'docs') setActiveFilterTerm(currentTerm); }} onBook={triggerBooking} />}
+        {currentTab === 'home' && userRole === 'mentor' && <MentorHub mentor={currentUser} screen="home" onNavigate={(tab) => setCurrentTab(tab)} />}
         
         {/* 1. COMMUNITY (GỌI ĐẾN FILE LOGIC RIÊNG BIỆT) */}
         {currentTab === 'community' && userRole !== 'mentor' && (
@@ -499,14 +516,15 @@ export default function App() {
           />
         )}
 
-        {currentTab === 'mentor' && userRole === 'mentor' && <MentorDashboard mentor={currentUser} screen="calendar" />}
+        {currentTab === 'mentor' && userRole === 'mentor' && <MentorHub mentor={currentUser} screen="sessions" onNavigate={(tab) => setCurrentTab(tab)} />}
 
         {/* 2. TÀI LIỆU */}
-        {currentTab === 'community' && userRole === 'mentor' && <MentorDashboard mentor={currentUser} screen="community" />}
+        {currentTab === 'community' && userRole === 'mentor' && <MentorCommunity mentor={currentUser} bookings={myBookings} onOpenChat={() => setCurrentTab('chat')} />}
         {currentTab === 'chat' && <MentorInbox mentors={mentorProfiles} bookings={myBookings} menteeName={fullName} />}
         {currentTab === 'schedule' && <BookingHub bookings={myBookings} onBack={() => setCurrentTab('home')} onUpdate={handleUpdateBooking} menteeName={fullName} />}
-        {currentTab === 'docs' && userRole === 'mentor' && <MentorDashboard mentor={currentUser} screen="docs" />}
-        {currentTab === 'docs' && userRole !== 'mentor' && (
+        {currentTab === 'docs' && userRole === 'mentor' && <MentorDocuments mentor={currentUser} />}
+        {currentTab === 'docs' && userRole !== 'mentor' && <MyDocuments documents={[...fptData, ...mentorDocuments].map(doc => ({ ...doc, id: doc.id || doc.code }))} unlockedDocs={unlockedDocs} onOpen={(doc) => setSelectedDocumentDetail(doc)} />}
+        {false && currentTab === 'docs' && userRole !== 'mentor' && (
           <ScrollView contentContainerStyle={{ padding: 20 }}>
             <View style={styles.docsHero}><View><Text style={styles.docsEyebrow}>LEARNING EXPLORER</Text><Text style={styles.docsTitle}>Tài liệu học tập</Text><Text style={styles.docsSubtitle}>Học theo môn, lưu tài liệu và làm quiz ôn tập.</Text></View><View style={styles.docsCoin}><Ionicons name="wallet-outline" size={16} color="#173F83" /><Text style={styles.docsCoinText}>{userXu} Xu</Text></View></View>
             <View style={styles.docsSearch}><Ionicons name="search-outline" size={18} color="#536E99" /><TextInput value={documentSearch} onChangeText={setDocumentSearch} placeholder="Tìm môn học hoặc tài liệu..." placeholderTextColor="#71829D" style={styles.docsSearchInput} /></View>
@@ -547,7 +565,8 @@ export default function App() {
         {/* 3. MENTOR */}
         {currentTab === 'mentor' && userRole !== 'mentor' && <FindMentor mentors={mentorProfiles} courses={courses} currentTerm={currentTerm} bookings={myBookings} onBook={triggerBooking} />}
 
-        {currentTab === 'profile' && <ProfileHub user={{...currentUser, avatarUrl}} university={university} currentTerm={currentTerm} userXu={userXu} bookings={myBookings} mentors={mentorProfiles} documents={[...fptData, ...mentorDocuments]} unlockedDocs={unlockedDocs} onEdit={() => setShowEditProfileModal(true)} onTopUp={() => {setTopUpStandalone(true);setShowTopUpModal(true);}} onOpenDocument={(doc) => setSelectedDocumentDetail(doc)} onUpdateBooking={handleUpdateBooking} onLogout={() => setIsLoggedIn(false)} />}
+        {currentTab === 'profile' && userRole === 'mentor' && <MentorProfileHub user={{...currentUser, avatarUrl}} onUpdate={async next => { setCurrentUser(next); await Database.updateUserData(email, { fullName: next.fullName, mentorBio: next.mentorBio, mentorFee: next.mentorFee, mentorCourses: next.mentorCourses, bankAccount: next.bankAccount, availableXu: next.availableXu }); }} onLogout={() => setIsLoggedIn(false)} />}
+        {currentTab === 'profile' && userRole !== 'mentor' && <ProfileHub user={{...currentUser, avatarUrl}} university={university} currentTerm={currentTerm} userXu={userXu} bookings={myBookings} mentors={mentorProfiles} documents={[...fptData, ...mentorDocuments]} unlockedDocs={unlockedDocs} onEdit={() => setShowEditProfileModal(true)} onTopUp={() => {setTopUpStandalone(true);setShowTopUpModal(true);}} onOpenDocument={(doc) => setSelectedDocumentDetail(doc)} onOpenSchedule={() => setCurrentTab('schedule')} onOpenChat={() => setCurrentTab('chat')} onChangePassword={() => setShowChangePassword(true)} onClaimReward={async () => { const next = userXu + 1; setUserXu(next); await Database.updateUserData(email, { userXu: next }); setNotice({ title: 'Nhận thưởng thành công', message: 'Đã cộng 1 Xu vào Ví PSIFU.' }); }} onUpdateBooking={handleUpdateBooking} onLogout={() => setIsLoggedIn(false)} />}
 
         {/* 4. PROFILE */}
         {false && (
@@ -605,12 +624,12 @@ export default function App() {
 
         <TouchableOpacity style={styles.navItem} onPress={() => { setCurrentTab('docs'); setActiveFilterTerm(currentTerm); }}>
           <Ionicons name={currentTab === 'docs' ? 'book' : 'book-outline'} size={20} color={currentTab === 'docs' ? '#173F83' : '#71829D'} />
-          <Text style={[styles.navLabel, currentTab === 'docs' && styles.navActiveText]}>Tài liệu</Text>
+          <Text style={[styles.navLabel, currentTab === 'docs' && styles.navActiveText]}>My Documents</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.navItem} onPress={() => setCurrentTab('mentor')}>
           <Ionicons name={currentTab === 'mentor' ? 'hand-left' : 'hand-left-outline'} size={20} color={currentTab === 'mentor' ? '#173F83' : '#71829D'} />
-          <Text style={[styles.navLabel, currentTab === 'mentor' && styles.navActiveText]}>Mentor</Text>
+          <Text style={[styles.navLabel, currentTab === 'mentor' && styles.navActiveText]}>{userRole === 'mentor' ? 'Sessions' : 'Mentor'}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.navItem} onPress={() => setCurrentTab('profile')}>
