@@ -1,7 +1,7 @@
 
 export const academicPrograms = [
   { id: 'it', code: 'IT', name: 'Computing', icon: 'code-slash-outline', majors: [
-    { id: 'se', code: 'SE', name: 'Software Engineering', tracks: [{ id: 'nodejs', name: 'NodeJS' }, { id: 'dotnet', name: '.NET' }] },
+    { id: 'se', code: 'SE', name: 'Software Engineering', tracks: [{ id: 'js', name: 'JS' }, { id: 'dotnet', name: '.NET' }] },
     { id: 'ia', code: 'IA', name: 'Information Assurance / Information Security', tracks: [] }, { id: 'ai', code: 'AI', name: 'Artificial Intelligence', tracks: [] }, { id: 'is', code: 'IS', name: 'Information Systems', tracks: [] }, { id: 'gd', code: 'GD', name: 'Digital Art & Design / Graphic Design', tracks: [] },
   ] },
   { id: 'ba', code: 'BA', name: 'Business Administration', icon: 'briefcase-outline', majors: [

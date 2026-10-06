@@ -2,7 +2,7 @@ require('dotenv').config();
 const crypto = require('crypto'); const nodemailer = require('nodemailer'); const bcrypt = require('bcryptjs'); const jwt = require('jsonwebtoken'); const rateLimit = require('express-rate-limit');
 const express = require('express'); const cors = require('cors'); const mongoose = require('mongoose');
 const app = express(); app.use(cors()); app.use(express.json());
-const User = mongoose.model('User', new mongoose.Schema({ fullName: { type: String, required: true }, email: { type: String, required: true, unique: true, lowercase: true }, password: { type: String, required: true }, role: { type: String, enum: ['mentee', 'mentor', 'admin'], default: 'mentee' }, avatarUrl: String, university: String, academicYear: String, fptK: String, studentId: String, major: String, specialization: String, track: String, currentTerm: String, specialty: String, mentorBio: String, mentorFee: Number, mentorCourses: [String], mentorAvailability: { accepting: { type: Boolean, default: true }, slots: [{ day: String, ranges: [String] }] }, notificationPreferences: { appointment: { type: Boolean, default: true }, community: { type: Boolean, default: true }, chat: { type: Boolean, default: true }, public: { type: Boolean, default: true }, document: { type: Boolean, default: true }, wallet: { type: Boolean, default: true } }, userXu: { type: Number, default: 20 }, availableXu: { type: Number, default: 0 }, escrowXu: { type: Number, default: 0 }, bankAccount: { bankName: String, accountNumber: String, accountHolder: String }, subscription: { plan: { type: String, enum: ['FREE','PREMIUM'], default: 'FREE' }, status: { type: String, enum: ['ACTIVE','EXPIRED','CANCELLED'], default: 'ACTIVE' }, startedAt: Date, expiresAt: Date }, aiQuizUsage: { type: Number, default: 0 }, aiQuizUsagePeriod: String, hasCheckedInToday: { type: Boolean, default: false }, isFirstLogin: { type: Boolean, default: true }, emailVerified: { type: Boolean, default: false }, otpHash: String, otpPurpose: String, otpExpiresAt: Date, protected: { type: Boolean, default: false } }, { timestamps: true, versionKey: false }));
+const User = mongoose.model('User', new mongoose.Schema({ fullName: { type: String, required: true }, email: { type: String, required: true, unique: true, lowercase: true }, password: { type: String, required: true }, googleSubject: { type: String, unique: true, sparse: true }, role: { type: String, enum: ['mentee', 'mentor', 'admin'], default: 'mentee' }, avatarUrl: String, university: String, academicYear: String, fptK: String, studentId: String, major: String, specialization: String, track: String, currentTerm: String, specialty: String, mentorBio: String, mentorFee: Number, mentorCourses: [String], mentorAvailability: { accepting: { type: Boolean, default: true }, slots: [{ day: String, ranges: [String] }] }, notificationPreferences: { appointment: { type: Boolean, default: true }, community: { type: Boolean, default: true }, chat: { type: Boolean, default: true }, public: { type: Boolean, default: true }, document: { type: Boolean, default: true }, wallet: { type: Boolean, default: true } }, userXu: { type: Number, default: 20 }, availableXu: { type: Number, default: 0 }, escrowXu: { type: Number, default: 0 }, bankAccount: { bankName: String, accountNumber: String, accountHolder: String }, subscription: { plan: { type: String, enum: ['FREE','PREMIUM'], default: 'FREE' }, status: { type: String, enum: ['ACTIVE','EXPIRED','CANCELLED'], default: 'ACTIVE' }, startedAt: Date, expiresAt: Date }, aiQuizUsage: { type: Number, default: 0 }, aiQuizUsagePeriod: String, hasCheckedInToday: { type: Boolean, default: false }, isFirstLogin: { type: Boolean, default: true }, emailVerified: { type: Boolean, default: false }, otpHash: String, otpPurpose: String, otpExpiresAt: Date, protected: { type: Boolean, default: false } }, { timestamps: true, versionKey: false }));
 const Course = mongoose.model('Course', new mongoose.Schema({ code: String, name: String, term: String, fee: Number, link: String, major: String, specialization: String, track: { type: String, default: '' } }, { timestamps: true, versionKey: false }));
 Course.schema.index({ code: 1, major: 1, specialization: 1, track: 1 }, { unique: true });
 const Question = mongoose.model('Question', new mongoose.Schema({ menteeName: String, major: String, currentTerm: String, question: String, status: { type: String, default: 'new' } }, { timestamps: true, versionKey: false }));
@@ -42,6 +42,44 @@ const bbaMcCourseSeed = [
 ['EXE201','Experiential Entrepreneurship 2',8],['MLN111','Philosophy of Marxism - Leninism',8],['MLN122','Political Economics of Marxism - Leninism',8],['MSM201c','Meta Social Media Marketing Management',8],['PMG201c','Project Management',8],['PRE301','Public Relations Principles and Strategies',8],
 ['GRA497','Capstone Project Multimedia Communications',9],['HCM202','Ho Chi Minh Ideology',9],['MLN131','Scientific Socialism',9],['VNR202','History of Viet Nam Communist Party',9]
 ].map(([code, name, semester]) => ({ code, name, term: `Kỳ ${semester}`, fee: 0, major: 'Business Administration', specialization: 'MC', track: '', link: `https://drive.google.com/${String(code).toLowerCase()}_secret` }));
+// Nguồn: chương trình BA(IB) do người dùng cung cấp.
+const baIbCourseSeed = [
+['ECO111','Microeconomics',1],['ENM302','Business English - Level: Intermediate',1],['MGT103','Introduction to Management',1],['MKT101','Marketing Principles',1],['SSL101c','Academic Skills for University Success',1],
+['ACC101','Principles of Accounting',2],['ECO121','Macroeconomics',2],['ENM402','Business English Level 2',2],['OBE102c','Organizational Behavior',2],['SSG104','Communication and In-Group Working Skills',2],
+['ECO201','International Economics',3],['FIN202','Principles of Corporate Finance',3],['HRM202c','Human Resource Management',3],['IBC201','Cross Cultural Management and Negotiation',3],['IBI101','Introduction to International Business',3],
+['CHN113','Elementary Chinese 1',4],['IBF301','International Finance',4],['ITA203c','Information System Overview',4],['MAS202','Applied Statistics for Business',4],['SCM201','Supply Chain Management',4],
+['CHN123','Elementary Chinese 2',5],['IBS301m','International Business Strategy',5],['IEI301','Import Export',5],['MKT205c','International Marketing',5],['SSB201','Advanced Business Communication',5],
+['ENW492c','Academic Writing Skills',6],['OJB202','On-the-job Training',6],
+['EXE101','Experiential Entrepreneurship 1',7],['IIP301','International Payment',7],['LAW102','Business Law and Ethics Fundamentals',7],['LAW201c','International Business Law',7],['SCM301m','Procurement and Global Sourcing',7],['EXE201','Experiential Entrepreneurship 2',7],
+['LOG311','Customs Operations',8],['MLN111','Philosophy of Marxism - Leninism',8],['MLN122','Political Economics of Marxism and Leninism',8],['PMG201c','Project Management',8],['RMB301','Business Research Methods',8],
+['BBA_GRA_ELE','BBA Graduation Thesis Elective',9],['HCM202','HCM Ideology',9],['MLN131','Scientific Socialism',9],['VNR202','History of CPV',9]
+].map(([code, name, semester]) => ({ code, name, term: `Kỳ ${semester}`, fee: 0, major: 'Business Administration', specialization: 'BA(IB)', track: '', link: `https://drive.google.com/${String(code).toLowerCase()}_secret` }));
+// Nguồn: chương trình IT → SE → .NET do người dùng cung cấp.
+const seDotnetCourseSeed = [
+['GDQP','Military Education',0],['OTP101','Orientation and General Training Program',0],['TMI101','Traditional Musical Instrument',0],['TRS601','English 6 (University Success)',0],['VOV114','Vovinam 1/3',0],['VOV124','Vovinam 2/3',0],['VOV134','Vovinam 3/3',0],
+['CEA201','Computer Organization and Architecture',1],['CSI104','Introduction to Computer Science',1],['MAE101','Mathematics for Engineering',1],['PRF192','Programming Fundamentals',1],['SSL101c','Academic Skills for University Success',1],
+['MAD101','Discrete Mathematics',2],['NWC204','Computer Networking',2],['OSG202','Operating Systems',2],['PRO192','Object-Oriented Programming',2],['SSG104','Communication and In-Group Working Skills',2],
+['CSD201','Data Structures and Algorithms',3],['JPD113','Elementary Japanese 1-A1.1',3],['LAB211','OOP with Java Lab',3],['WED201c','Web Design',3],
+['IOT102','Internet of Things',4],['JPD123','Elementary Japanese 1-A1.2',4],['MAS291','Statistics & Probability',4],['PRJ301','Java Web Application Development',4],['SWE201c','Introduction to Software Engineering',4],
+['PRN212','Basic Cross-Platform Application Programming With .NET',5],['SWP391','Software Development Project',5],['SWR302','Software Requirement',5],['SWT301','Software Testing',5],['WDU203c','UI/UX Design',5],
+['ENW493c','Research Methods & Academic Writing Skills',6],['OJT202','On-The-Job Training',6],
+['EXE101','Experiential Entrepreneurship 1',7],['PMG201c','Project Management',7],['PRN222','Advanced Cross-Platform Application Programming With .NET',7],['PRU213','Game Programming with C#',7],['SWD392','Software Architecture and Design',7],
+['EXE201','Experiential Entrepreneurship 2',8],['ITE302c','Ethics in IT',8],['MLN111','Philosophy of Marxism - Leninism',8],['MLN122','Political Economics of Marxism - Leninism',8],['PRM393','Mobile Programming',8],['PRN232','Xây dựng ứng dụng back-end với .NET',8],
+['HCM202','HCM Ideology',9],['MLN131','Scientific Socialism',9],['SE_GRA_ELE','Graduation Elective - Software Engineering',9],['VNR202','History of CPV',9]
+].map(([code, name, semester]) => ({ code, name, term: `Kỳ ${semester}`, fee: 0, major: 'Computing', specialization: 'SE', track: '.NET', link: `https://drive.google.com/${String(code).toLowerCase()}_secret` }));
+// Nguồn: chương trình IT → SE → JS do người dùng cung cấp.
+const seJsCourseSeed = [
+['GDQP','Military Education',0],['OTP101','Orientation and General Training Program',0],['TMI101','Traditional Musical Instrument',0],['TRS601','English 6 (University Success)',0],['VOV114','Vovinam 1/3',0],['VOV124','Vovinam 2/3',0],['VOV134','Vovinam 3/3',0],
+['CEA201','Computer Organization and Architecture',1],['CSI104','Introduction to Computer Science',1],['MAE101','Mathematics for Engineering',1],['PRF192','Programming Fundamentals',1],['SSL101c','Academic Skills for University Success',1],
+['MAD101','Discrete Mathematics',2],['NWC204','Computer Networking',2],['OSG202','Operating Systems',2],['PRO192','Object-Oriented Programming',2],['SSG104','Communication and In-Group Working Skills',2],
+['CSD201','Data Structures and Algorithms',3],['DBI202','Introduction to Databases',3],['JPD113','Elementary Japanese 1 - A1.1',3],['LAB211','OOP with Java Lab',3],['WED201c','Web Design',3],
+['IOT102','Internet of Things',4],['JPD123','Elementary Japanese 1-A1.2',4],['MAS291','Statistics & Probability',4],['PRJ301','Java Web Application Development',4],['SWE201c','Introduction to Software Engineering',4],
+['JPD133','Elementary Japanese 1-A1/A2',5],['SWP391','Software Development Project',5],['SWR302','Software Requirement',5],['SWT301','Software Testing',5],['WDU203c','UI/UX Design',5],
+['ENW493c','Research Methods & Academic Writing Skills',6],['OJT202','On-The-Job Training',6],
+['JPD316','Intermediate Japanese 1-B1/B2',7],['PMG201c','Project Management',7],['SWD392','Software Architecture and Design',7],['SYB302c','Entrepreneurship',7],
+['ITE302c','Ethics in IT',8],['JFE301','Japanese IT Fundamentals',8],['JIT401','Information Technology Japanese',8],['MLN111','Philosophy of Marxism - Leninism',8],['MLN122','Political Economics of Marxism - Leninism',8],['PRM393','Mobile Programming',8],
+['HCM202','HCM Ideology',9],['MLN131','Scientific Socialism',9],['SE_GRA_ELE','Graduation Elective - Software Engineering',9],['VNR202','History of CPV',9]
+].map(([code, name, semester]) => ({ code, name, term: `Kỳ ${semester}`, fee: 0, major: 'Computing', specialization: 'SE', track: 'JS', link: `https://drive.google.com/${String(code).toLowerCase()}_secret` }));
 
 const aiCourseSeed = [
 ['GDQP','Military Education (Giáo dục quốc phòng)',0],['OTP101','Orientation & General Training Program',0],['TMI101','Traditional Musical Instrument (Nhạc cụ)',0],['TRS601','English 6 (University Success)',0],['VOV114','Vovinam 1/3',0],['VOV124','Vovinam 2/3',0],['VOV134','Vovinam 3/3',0],
@@ -55,8 +93,8 @@ const aiCourseSeed = [
 ['AID301c','AI in Production (Triển khai hệ thống AI)',8],['AIE301m','AI for Trading',8],['EXE201','Experiential Entrepreneurship 2',8],['MLN111','Philosophy of Marxism - Leninism',8],['MLN122','Political Economics of Marxism - Leninism',8],['REL301m','Reinforcement Learning (Học tăng cường)',8],
 ['AI17_GRA','AI17_GRA_ELE: Graduation Elective / Thesis',9],['HCM202','HCM Ideology (Tư tưởng Hồ Chí Minh)',9],['MLN131','Scientific Socialism (Chủ nghĩa XHKH)',9],['VNR202','History of CPV (Lịch sử Đảng CSVN)',9]
 ].map(([code, name, semester]) => ({ code, name, term: `Kỳ ${semester}`, fee: 0, major: 'Computing', specialization: 'AI', track: '', link: `https://drive.google.com/${String(code).toLowerCase()}_secret` }));
-const allCourseSeeds = [...courseSeed, ...bbaMcCourseSeed, ...aiCourseSeed];
-const toClient = doc => { const value = doc.toObject ? doc.toObject() : doc; const { password, otpHash, otpPurpose, otpExpiresAt, ...safe } = value; return { ...safe, id: String(value._id), createdAt: value.createdAt || new Date().toISOString() }; };
+const allCourseSeeds = [...courseSeed, ...bbaMcCourseSeed, ...baIbCourseSeed, ...seDotnetCourseSeed, ...seJsCourseSeed, ...aiCourseSeed];
+const toClient = doc => { const value = doc.toObject ? doc.toObject() : doc; const { password, googleSubject, otpHash, otpPurpose, otpExpiresAt, ...safe } = value; return { ...safe, id: String(value._id), createdAt: value.createdAt || new Date().toISOString() }; };
 const JWT_SECRET = process.env.JWT_SECRET;
 const PASSWORD_HASH_ROUNDS = 10;
 const authLimiter = rateLimit({windowMs:15*60*1000,limit:8,standardHeaders:'draft-8',legacyHeaders:false,message:{success:false,msg:'Bạn đã thử quá nhiều lần. Vui lòng thử lại sau 15 phút.'}});
@@ -100,6 +138,35 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
   if (!passwordOk&&!legacyPasswordOk) return res.status(401).json({ success: false, code: 'WRONG_PASSWORD', msg: 'Mật khẩu chưa chính xác. Vui lòng thử lại.' });
   res.json({ success: true, user: toClient(user), accessToken:makeToken(user) });
   if(legacyPasswordOk||bcrypt.getRounds(user.password)>PASSWORD_HASH_ROUNDS){bcrypt.hash(req.body.password,PASSWORD_HASH_ROUNDS).then(password=>User.updateOne({_id:user._id},{$set:{password}})).catch(()=>{});}
+});
+app.post('/api/auth/google', authLimiter, async (req, res) => {
+  const idToken = String(req.body.idToken || '');
+  const clientId = process.env.GOOGLE_WEB_CLIENT_ID;
+  if (!clientId) return res.status(503).json({ success: false, msg: 'Đăng nhập Google chưa được cấu hình trên máy chủ.' });
+  if (!idToken || idToken.length > 4096) return res.status(400).json({ success: false, msg: 'Google ID token không hợp lệ.' });
+  try {
+    const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.aud !== clientId || !['accounts.google.com', 'https://accounts.google.com'].includes(payload.iss) || !['true', true].includes(payload.email_verified) || !emailPattern.test(payload.email || '') || !payload.sub) {
+      return res.status(401).json({ success: false, msg: 'Không thể xác minh tài khoản Google này.' });
+    }
+    const email = cleanEmail(payload.email);
+    let user = await User.findOne({ $or: [{ googleSubject: payload.sub }, { email }] });
+    if (user && user.googleSubject && user.googleSubject !== payload.sub) return res.status(409).json({ success: false, msg: 'Email này đã được liên kết với một tài khoản Google khác.' });
+    if (!user) {
+      const fullName = String(payload.name || email.split('@')[0]).trim().slice(0, 80) || 'PSIFU Member';
+      user = await User.create({ fullName, email, password: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), PASSWORD_HASH_ROUNDS), googleSubject: payload.sub, avatarUrl: payload.picture || '', emailVerified: true, role: 'mentee', isFirstLogin: true });
+    } else {
+      user.googleSubject = payload.sub;
+      user.emailVerified = true;
+      if (!user.avatarUrl && payload.picture) user.avatarUrl = payload.picture;
+      await user.save();
+    }
+    res.json({ success: true, user: toClient(user), accessToken: makeToken(user) });
+  } catch (error) {
+    console.error('Google sign-in verification:', error.message);
+    res.status(502).json({ success: false, msg: 'Không thể xác minh Google lúc này. Vui lòng thử lại.' });
+  }
 });
 app.patch('/api/users/:email',requireAuth,requireSelfOrAdmin(), async (req,res)=>{const allowed=['fullName','avatarUrl','university','academicYear','fptK','studentId','major','specialization','track','currentTerm','mentorBio','mentorFee','mentorCourses','mentorAvailability','notificationPreferences','isFirstLogin'];const updates={};for(const key of allowed)if(req.body[key]!==undefined)updates[key]=req.body[key];if(updates.fullName!==undefined&&(String(updates.fullName).trim().length<2||String(updates.fullName).trim().length>80))return res.status(400).json({success:false,msg:'Họ tên phải từ 2 đến 80 ký tự.'});if(updates.mentorFee!==undefined&&(!Number.isInteger(Number(updates.mentorFee))||updates.mentorFee<0||updates.mentorFee>10000))return res.status(400).json({success:false,msg:'Mức phí Mentor không hợp lệ.'});const user=await User.findOneAndUpdate({email:req.params.email.toLowerCase()},{$set:updates},{new:true});if(!user)return res.status(404).json({success:false});res.json({success:true,user:toClient(user)});});
 app.get('/api/users/:email/settings', async (req,res) => { const user=await User.findOne({email:req.params.email.toLowerCase()}); if(!user)return res.status(404).json({success:false}); res.json({notificationPreferences:user.notificationPreferences||{},mentorAvailability:user.mentorAvailability||{accepting:true,slots:[]}}); });

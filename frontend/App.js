@@ -114,7 +114,7 @@ export default function App() {
   const [currentTerm, setCurrentTerm] = useState('Kỳ 1');
   const [major, setMajor] = useState('Computing');
   const [specialization, setSpecialization] = useState('SE');
-  const [track, setTrack] = useState('NodeJS');
+  const [track, setTrack] = useState('JS');
   const [fullName, setFullName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [userXu, setUserXu] = useState(20);
@@ -176,10 +176,10 @@ export default function App() {
       setCurrentTerm(user.currentTerm);
       setMajor(user.major || 'Computing');
       setSpecialization(user.specialization || 'SE');
-      setTrack(user.track || (user.specialization === 'SE' ? 'NodeJS' : ''));
+      setTrack(user.track || (user.specialization === 'SE' ? 'JS' : ''));
       setActiveFilterTerm(user.currentTerm);
       setLastCommunityTerm(user.currentTerm);
-      Database.getCourses(user.currentTerm, user.major || 'Computing', user.specialization || 'SE', user.track || (user.specialization === 'SE' ? 'NodeJS' : '')).then(setCourses).catch(() => setCourses([]));
+      Database.getCourses(user.currentTerm, user.major || 'Computing', user.specialization || 'SE', user.track || (user.specialization === 'SE' ? 'JS' : '')).then(setCourses).catch(() => setCourses([]));
     }
     setIsLoggedIn(true);
   };
