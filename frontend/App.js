@@ -151,7 +151,8 @@ export default function App() {
     setUserRole(user.role || 'mentee');
     Database.getAllUsers().then(users => setMentorProfiles(users.filter(item => item.role === 'mentor').map((item, index) => ({ id: item.email, name: item.fullName, role: item.specialty || 'Mentor PSIFU', avatar: '👨‍🏫', bio: `Mentor chuyên môn ${item.specialty || 'đa ngành'}.`, post: 'Sẵn sàng hỗ trợ mentee.', courses: item.email === 'mentor.se@psifu.vn' ? ['PRF192', 'PRO192', 'CSD201', 'DBI202', 'SDN302'] : item.email === 'mentor.data@psifu.vn' ? ['MAE101', 'MAD101', 'DBI202'] : ['MKT101'], availableSlots: index === 2 ? [] : index === 1 ? ['09:00 - 10:00', '19:00 - 20:00'] : ['09:00 - 10:00', '14:00 - 15:00', '19:00 - 20:00'], fee: index === 1 ? 40 : 50 }))));
     Database.getBookings().then(bookings => setMyBookings(user.role === 'mentor' ? bookings.filter(item => item.mentorEmail === user.email) : bookings.filter(item => item.menteeName === user.fullName)));
-    Database.getMentorDocuments().then(setMentorDocuments);
+    (user.role === 'mentor' ? Database.getMentorDocuments(user.email) : Database.getPublishedMentorDocuments()).then(setMentorDocuments).catch(() => setMentorDocuments([]));
+    Database.getDocumentUnlocks(user.email).then(ids => setUnlockedDocs(Object.fromEntries(ids.map(id => [id, true])))).catch(() => setUnlockedDocs({}));
     setEmail(user.email);
     setFullName(user.fullName);
     setAvatarUrl(user.avatarUrl || '');
@@ -231,17 +232,19 @@ export default function App() {
     if (!result.canceled) setAvatarUrl(result.assets[0].uri);
   };
 
-  const handleUnlockDoc = (docId, fee) => {
+  const handleUnlockDoc = async (doc) => {
+    const docId = doc.id || doc.code; const fee = Number(doc.fee || 0);
     if (unlockedDocs[docId]) return;
     if (userXu < fee) {
       setNotice({ type: 'error', title: 'Chưa đủ Xu', message: `Bạn cần thêm ${fee - userXu} Xu để mở tài liệu này.` });
       Alert.alert('Thiếu Xu 🛑', 'Bạn không đủ Xu để mở tài liệu này!');
       return;
     }
-    handleUpdateXu(-fee);
-    setUnlockedDocs(prev => ({ ...prev, [docId]: true }));
-    setNotice({ title: 'Đã mở khóa tài liệu', message: 'Tài liệu đã sẵn sàng trong mục Tài liệu của tôi.' });
+    if (!doc.mentorEmail) { await handleUpdateXu(-fee); setUnlockedDocs(prev => ({ ...prev, [docId]: true })); setNotice({ title: 'Đã mở khóa tài liệu', message: 'Tài liệu đã sẵn sàng trong mục Tài liệu của tôi.' }); return; }
+    try { const result = await Database.unlockMentorDocument(docId, email); setUserXu(result.userXu); setCurrentUser(previous => ({ ...previous, userXu:result.userXu })); setUnlockedDocs(prev => ({ ...prev, [docId]: true })); setNotice({ title:'Đã mở khóa tài liệu', message:'Quyền đọc đã được lưu vào tài khoản của bạn.' }); }
+    catch(error) { Alert.alert('Không thể mở khóa', error?.data?.msg || 'Vui lòng thử lại.'); }
   };
+  const openDocumentReader = async doc => { try { if (!doc.mentorEmail) return setSelectedDocumentReader(doc); const result = await Database.getMentorDocumentAccess(doc.id, email); setSelectedDocumentReader(result.document); } catch(error) { Alert.alert('Không thể mở tài liệu', error?.data?.msg || 'Vui lòng thử lại.'); } };
 
   const handleRateDocument = (docId, rating) => {
     setDocumentRatings(prev => ({ ...prev, [docId]: rating }));
@@ -374,7 +377,7 @@ export default function App() {
   if (selectedQuizDocument) return <SafeAreaView style={[styles.container, styles.lightContainer]}><QuizScreen document={selectedQuizDocument} onBack={() => setSelectedQuizDocument(null)} onComplete={() => setSelectedQuizDocument(null)} /><ToastNotice notice={notice} onClose={() => setNotice(null)} /></SafeAreaView>;
 
   if (selectedDocumentReader) return <SafeAreaView style={[styles.container, styles.lightContainer]}><DocumentReader document={selectedDocumentReader} onBack={() => setSelectedDocumentReader(null)} onQuiz={() => openAiQuiz(selectedDocumentReader)} /><ToastNotice notice={notice} onClose={() => setNotice(null)} /></SafeAreaView>;
-  if (selectedDocumentDetail) return <SafeAreaView style={[styles.container, styles.lightContainer]}><DocumentDetail document={selectedDocumentDetail} unlocked={!!unlockedDocs[selectedDocumentDetail.id] || Number(selectedDocumentDetail.fee || 0) === 0} rating={documentRatings[selectedDocumentDetail.id] || 0} onBack={() => setSelectedDocumentDetail(null)} onUnlock={() => handleUnlockDoc(selectedDocumentDetail.id, selectedDocumentDetail.fee || 0)} onRead={() => setSelectedDocumentReader(selectedDocumentDetail)} onQuiz={() => openAiQuiz(selectedDocumentDetail)} onRate={(rating) => handleRateDocument(selectedDocumentDetail.id, rating)} /><ToastNotice notice={notice} onClose={() => setNotice(null)} /></SafeAreaView>;
+  if (selectedDocumentDetail) return <SafeAreaView style={[styles.container, styles.lightContainer]}><DocumentDetail document={selectedDocumentDetail} unlocked={!!unlockedDocs[selectedDocumentDetail.id] || Number(selectedDocumentDetail.fee || 0) === 0} rating={documentRatings[selectedDocumentDetail.id] || 0} onBack={() => setSelectedDocumentDetail(null)} onUnlock={() => handleUnlockDoc(selectedDocumentDetail)} onRead={() => openDocumentReader(selectedDocumentDetail)} onQuiz={() => openAiQuiz(selectedDocumentDetail)} onRate={(rating) => handleRateDocument(selectedDocumentDetail.id, rating)} /><ToastNotice notice={notice} onClose={() => setNotice(null)} /></SafeAreaView>;
   if (showTopUpModal) return <SafeAreaView style={[styles.container, styles.lightContainer]}><TopUpScreen balance={userXu} amount={topUpAmount} requiredFee={topUpStandalone ? 0 : selectedMentorFee} onChangeAmount={setTopUpAmount} onClose={() => { setShowTopUpModal(false); if (!topUpStandalone) setShowBookingModal(true); }} onContinue={() => setShowPayOSPayment(true)} /></SafeAreaView>;
   if (showPayOSPayment) return <SafeAreaView style={[styles.container, styles.lightContainer]}><PayOSPayment coins={topUpAmount} email={email} onCancel={() => setShowPayOSPayment(false)} onPaid={(payment) => { setUserXu(payment.userXu); setCurrentUser(previous => ({...previous,userXu:payment.userXu})); setShowPayOSPayment(false); setShowTopUpModal(false); if(!topUpStandalone)setShowBookingModal(true); setNotice({title:'Nạp Xu thành công',message:`PayOS đã xác nhận và cộng ${payment.coins} Xu vào ví PSIFU.`}); }} /></SafeAreaView>;
   if (showBookingModal) return <SafeAreaView style={[styles.container, styles.lightContainer]}><AppointmentFlow mentor={selectedMentor} course={selectedBookingCourse} fee={selectedMentorFee} slots={selectedMentorSlots} onCancel={() => setShowBookingModal(false)} onSubmit={submitBooking} /></SafeAreaView>;
