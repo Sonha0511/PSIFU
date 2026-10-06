@@ -1,8 +1,5 @@
 const { getDefaultConfig } = require('expo/metro-config');
 
-const config = getDefaultConfig(__dirname);
-config.transformer.babelTransformerPath = require.resolve('react-native-svg-transformer');
-config.resolver.assetExts = config.resolver.assetExts.filter((extension) => extension !== 'svg');
-config.resolver.sourceExts = [...config.resolver.sourceExts, 'svg'];
-
-module.exports = config;
+// No project source imports SVG as a React component. Keeping Expo's default
+// transformer avoids a Metro transformer-version conflict in Expo Go.
+module.exports = getDefaultConfig(__dirname);

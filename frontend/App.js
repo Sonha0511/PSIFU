@@ -357,9 +357,6 @@ export default function App() {
   if (!hasSeenOnboarding) return <Onboarding onFinish={finishOnboarding} />;
 
   if (!isLoggedIn) {
-    if (authScreen === 'verify') {
-      return <VerifyEmail email={loginPrefillEmail} onBack={() => setAuthScreen('register')} onVerified={(verifiedEmail) => { setLoginPrefillEmail(verifiedEmail); setAuthScreen('login'); }} />;
-    }
     if (authScreen === 'login') {
       return <Login onLoginSuccess={handleLoginSuccess} prefilledEmail={loginPrefillEmail} onSwitchToRegister={() => setAuthScreen('register')} onForgotPassword={() => setAuthScreen('forgot')} />;
     }
@@ -372,7 +369,7 @@ export default function App() {
     if (authScreen === 'resetPassword') {
       return <ResetPassword email={loginPrefillEmail} otpCode={resetOtpCode} onBack={() => setAuthScreen('resetVerify')} onComplete={(resetEmail) => { setLoginPrefillEmail(resetEmail); setResetOtpCode(''); setAuthScreen('login'); }} />;
     } else {
-      return <Register onSwitchToLogin={() => setAuthScreen('login')} onRegisterSuccess={(registeredEmail) => { setLoginPrefillEmail(registeredEmail); setAuthScreen('verify'); }} />;
+      return <Register onSwitchToLogin={() => setAuthScreen('login')} onRegisterSuccess={(registeredEmail) => { setLoginPrefillEmail(registeredEmail); setAuthScreen('login'); }} />;
     }
   }
 

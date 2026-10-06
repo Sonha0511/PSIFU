@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { WebView } from 'react-native-webview';
 
 export default function DocumentReader({ document, onBack, onQuiz }) {
   const [page, setPage] = useState(5);
-  if (document.fileUri) return <View style={s.screen}><View style={s.top}><TouchableOpacity onPress={onBack}><Ionicons name="chevron-back" size={24} color="#102A56" /></TouchableOpacity><Text style={s.topTitle} numberOfLines={1}>{document.name || document.title}</Text><Ionicons name="cloud-done-outline" size={20} color="#155EEF" /></View><WebView source={{uri:document.fileUri}} startInLoadingState renderLoading={()=><View style={s.loading}><Text style={s.loadingText}>Đang mở PDF từ cloud...</Text></View>}/></View>;
+  if (document.fileUri) return <View style={s.screen}><View style={s.top}><TouchableOpacity onPress={onBack}><Ionicons name="chevron-back" size={24} color="#102A56" /></TouchableOpacity><Text style={s.topTitle} numberOfLines={1}>{document.name || document.title}</Text><Ionicons name="cloud-done-outline" size={20} color="#155EEF" /></View><View style={s.loading}><Ionicons name="document-text-outline" size={36} color="#155EEF"/><Text style={s.loadingText}>Tài liệu PDF được lưu an toàn trên cloud.</Text><TouchableOpacity style={s.quiz} onPress={()=>Linking.openURL(document.fileUri)}><Text style={s.quizText}>MỞ PDF</Text></TouchableOpacity></View></View>;
   const total = 24; const pct = Math.round(page / total * 100);
   return <ScrollView style={s.screen} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
     <View style={s.top}><TouchableOpacity onPress={onBack}><Ionicons name="chevron-back" size={24} color="#102A56" /></TouchableOpacity><Text style={s.topTitle} numberOfLines={1}>{document.name || document.title}</Text><Ionicons name="bookmark-outline" size={20} color="#102A56" /></View>
