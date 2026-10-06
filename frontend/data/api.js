@@ -1,4 +1,8 @@
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
+let memoryToken=null;
+export async function setAccessToken(token){memoryToken=token||null;}
+export async function getAccessToken(){return memoryToken;}
+export async function clearAccessToken(){return setAccessToken(null);}
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // Free Render instances can sleep after inactivity. Network/5xx retries let the
@@ -8,7 +12,7 @@ export async function request(path, options = {}) {
   let lastError;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     try {
-      const response = await fetch(`${API_URL}${path}`, { headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }, ...options });
+      const token=await getAccessToken(); const response = await fetch(`${API_URL}${path}`, { headers: { 'Content-Type': 'application/json', ...(token?{Authorization:`Bearer ${token}`}:{}) ,...(options.headers || {}) }, ...options });
       const contentType = response.headers.get('content-type') || '';
       const data = contentType.includes('application/json') ? await response.json() : {};
       if (response.ok) return data;

@@ -2,7 +2,7 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function DocumentDetail({ document, unlocked, onBack, onUnlock, onQuiz, rating, onRate }) {
+export default function DocumentDetail({ document, unlocked, onBack, onUnlock, onRead, onQuiz, rating, onRate }) {
   const fee = Number(document.fee || 0);
   return <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
     <View style={styles.top}><TouchableOpacity style={styles.back} onPress={onBack}><Ionicons name="chevron-back" size={22} color="#102A56" /></TouchableOpacity><Text numberOfLines={1} style={styles.topTitle}>Chi tiết tài liệu</Text><View style={styles.topMark}><Ionicons name="bookmark-outline" size={18} color="#173F83" /></View></View>
@@ -12,8 +12,8 @@ export default function DocumentDetail({ document, unlocked, onBack, onUnlock, o
     <Section title="Bạn sẽ học được"><Point text="Các khái niệm quan trọng của môn học" /><Point text="Cách xử lý bài tập theo từng bước" /><Point text="Mẹo tránh các lỗi thường gặp" /></Section>
     <Section title="Đánh giá tài liệu" right={rating ? `${rating}/5 sao` : 'Chưa đánh giá'}><View style={styles.rateRow}>{[1,2,3,4,5].map(value => <TouchableOpacity key={value} onPress={() => onRate(value)}><Ionicons name={value <= rating ? 'star' : 'star-outline'} size={26} color="#173F83" /></TouchableOpacity>)}</View></Section>
     {unlocked ? <View style={styles.unlocked}><Ionicons name="checkmark-circle" size={20} color="#173F83" /><View style={{ flex: 1 }}><Text style={styles.unlockedTitle}>Bạn đã mở khóa tài liệu</Text><Text style={styles.unlockedCopy}>Có thể đọc nội dung và làm quiz ôn tập ngay.</Text></View></View> : <View style={styles.locked}><Ionicons name="lock-closed-outline" size={21} color="#173F83" /><View style={{ flex: 1 }}><Text style={styles.lockedTitle}>Mở khóa để đọc đầy đủ</Text><Text style={styles.lockedCopy}>Sử dụng {fee} Xu để mở tài liệu này.</Text></View></View>}
-    <TouchableOpacity style={styles.primary} onPress={() => unlocked ? onQuiz() : onUnlock()}><Ionicons name={unlocked ? 'sparkles-outline' : 'lock-open-outline'} size={18} color="#FFFFFF" /><Text style={styles.primaryText}>{unlocked ? 'LÀM QUIZ ÔN TẬP' : `MỞ KHÓA · ${fee} XU`}</Text></TouchableOpacity>
-    {unlocked ? <TouchableOpacity style={styles.secondary} onPress={() => {}}><Ionicons name="reader-outline" size={18} color="#173F83" /><Text style={styles.secondaryText}>ĐỌC TÀI LIỆU</Text></TouchableOpacity> : null}
+    <TouchableOpacity style={styles.primary} onPress={() => unlocked ? onRead() : onUnlock()}><Ionicons name={unlocked ? 'reader-outline' : 'lock-open-outline'} size={18} color="#FFFFFF" /><Text style={styles.primaryText}>{unlocked ? 'ĐỌC TÀI LIỆU' : `MỞ KHÓA · ${fee} XU`}</Text></TouchableOpacity>
+    {unlocked ? <TouchableOpacity style={styles.secondary} onPress={onQuiz}><Ionicons name="sparkles-outline" size={18} color="#173F83" /><Text style={styles.secondaryText}>LÀM QUIZ ÔN TẬP</Text></TouchableOpacity> : null}
   </ScrollView>;
 }
 function Section({ title, right, children }) { return <View style={styles.section}><View style={styles.sectionHead}><Text style={styles.sectionTitle}>{title}</Text>{right ? <Text style={styles.sectionRight}>{right}</Text> : null}</View>{children}</View>; }

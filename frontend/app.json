@@ -11,11 +11,14 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.psifu.app",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "PSIFU dùng camera cho phiên mentoring Jitsi.",
+        "NSMicrophoneUsageDescription": "PSIFU dùng microphone cho phiên mentoring Jitsi."
       }
     },
     "android": {
       "package": "com.psifu.app",
+      "permissions": ["CAMERA", "RECORD_AUDIO", "MODIFY_AUDIO_SETTINGS"],
       "adaptiveIcon": {
         "foregroundImage": "./assets/logo.png",
         "backgroundColor": "#ffffff"

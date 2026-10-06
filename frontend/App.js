@@ -112,6 +112,9 @@ export default function App() {
   const [lastCommunityTerm, setLastCommunityTerm] = useState('');
   const [shouldShowCommunityFilter, setShouldShowCommunityFilter] = useState(false);
   const [currentTerm, setCurrentTerm] = useState('Kỳ 1');
+  const [major, setMajor] = useState('Computing');
+  const [specialization, setSpecialization] = useState('SE');
+  const [track, setTrack] = useState('NodeJS');
   const [fullName, setFullName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [userXu, setUserXu] = useState(20);
@@ -171,19 +174,24 @@ export default function App() {
       setAcademicYear(user.academicYear);
       setFptK(user.fptK);
       setCurrentTerm(user.currentTerm);
+      setMajor(user.major || 'Computing');
+      setSpecialization(user.specialization || 'SE');
+      setTrack(user.track || (user.specialization === 'SE' ? 'NodeJS' : ''));
       setActiveFilterTerm(user.currentTerm);
       setLastCommunityTerm(user.currentTerm);
-      Database.getCourses(user.currentTerm).then(setCourses).catch(() => setCourses([]));
+      Database.getCourses(user.currentTerm, user.major || 'Computing', user.specialization || 'SE', user.track || (user.specialization === 'SE' ? 'NodeJS' : '')).then(setCourses).catch(() => setCourses([]));
     }
     setIsLoggedIn(true);
   };
+
+  const handleLogout = async () => { await Database.logout(); setCurrentUser(null); setIsLoggedIn(false); };
 
   const handleCompleteOnboarding = async (details = {}) => {
     const nextUniversity = details.university ?? university;
     const nextTerm = details.currentTerm ?? currentTerm;
     if (!nextUniversity.trim() || !nextTerm) return Alert.alert('Thông báo', 'Vui lòng điền Trường đại học và Học kỳ hiện tại!');
     const saved = await Database.updateUserData(email, {
-      university: nextUniversity.trim(), academicYear: details.academicYear ?? academicYear, fptK: details.fptK ?? fptK, studentId: details.studentId ?? '', major: details.major ?? 'Kỹ thuật phần mềm', specialization: details.specialization ?? 'NodeJS', currentTerm: nextTerm, isFirstLogin: false
+      university: nextUniversity.trim(), academicYear: details.academicYear ?? academicYear, fptK: details.fptK ?? fptK, studentId: details.studentId ?? '', major: details.major ?? 'Computing', specialization: details.specialization ?? 'SE', track: details.track ?? '', currentTerm: nextTerm, isFirstLogin: false
     });
 
     if (!saved) {
@@ -191,9 +199,12 @@ export default function App() {
       return;
     }
 
-    setUniversity(nextUniversity.trim()); setAcademicYear(details.academicYear ?? academicYear); setFptK(details.fptK ?? fptK); setCurrentTerm(nextTerm);
+    const nextMajor = details.major ?? major;
+    const nextSpecialization = details.specialization ?? specialization;
+    const nextTrack = details.track ?? track;
+    setUniversity(nextUniversity.trim()); setAcademicYear(details.academicYear ?? academicYear); setFptK(details.fptK ?? fptK); setCurrentTerm(nextTerm); setMajor(nextMajor); setSpecialization(nextSpecialization); setTrack(nextTrack);
     setActiveFilterTerm(nextTerm); setLastCommunityTerm(nextTerm);
-    Database.getCourses(nextTerm).then(setCourses).catch(() => setCourses([]));
+    Database.getCourses(nextTerm, nextMajor, nextSpecialization, nextTrack).then(setCourses).catch(() => setCourses([]));
     setShouldShowCommunityFilter(true);
     setShowOnboarding(false);
   };
@@ -211,11 +222,11 @@ export default function App() {
   };
 
   const handleSaveProfile = async () => {
-    const success = await Database.updateUserData(email, { fullName, avatarUrl, university, academicYear, fptK, currentTerm });
+    const success = await Database.updateUserData(email, { fullName, avatarUrl, university, academicYear, fptK, major, specialization, track, currentTerm });
     if (success) {
-      setCurrentUser(previous => ({ ...previous, fullName, avatarUrl, university, academicYear, fptK, currentTerm }));
+      setCurrentUser(previous => ({ ...previous, fullName, avatarUrl, university, academicYear, fptK, major, specialization, track, currentTerm }));
       setActiveFilterTerm(currentTerm);
-      Database.getCourses(currentTerm).then(setCourses).catch(() => setCourses([]));
+      Database.getCourses(currentTerm, major, specialization, track).then(setCourses).catch(() => setCourses([]));
       if (currentTerm !== lastCommunityTerm) {
         setLastCommunityTerm(currentTerm);
         setShouldShowCommunityFilter(true);
@@ -366,7 +377,7 @@ export default function App() {
   }
 
   if (userRole === 'admin') {
-    return <SafeAreaView style={[styles.container, styles.lightContainer]}><AdminDashboard admin={currentUser} onLogout={() => setIsLoggedIn(false)} /></SafeAreaView>;
+    return <SafeAreaView style={[styles.container, styles.lightContainer]}><AdminDashboard admin={currentUser} onLogout={handleLogout} /></SafeAreaView>;
   }
 
   if (showOnboarding) return <ProfileSetup onComplete={handleCompleteOnboarding} />;
@@ -607,7 +618,7 @@ export default function App() {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={styles.btnLogout} onPress={() => setIsLoggedIn(false)}>
+            <TouchableOpacity style={styles.btnLogout} onPress={handleLogout}>
               <Text style={{color: '#ef4444', fontWeight: 'bold'}}>ĐĂNG XUẤT TIẾN TRÌNH</Text>
             </TouchableOpacity>
           </ScrollView>

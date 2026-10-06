@@ -1,10 +1,11 @@
-import { request } from './api';
+import { clearAccessToken, request, setAccessToken } from './api';
 
 export const Database = {
   getAllUsers: () => request('/users'),
-  getCourses: (term, major = 'Kỹ thuật phần mềm', specialization = 'NodeJS') => request(`/courses?term=${encodeURIComponent(term)}&major=${encodeURIComponent(major)}&specialization=${encodeURIComponent(specialization)}`),
+  getCourses: (term, major = 'Computing', specialization = 'SE', track = '') => request(`/courses?term=${encodeURIComponent(term)}&major=${encodeURIComponent(major)}&specialization=${encodeURIComponent(specialization)}&track=${encodeURIComponent(track)}`),
   saveUser: async user => { try { return await request('/users', { method: 'POST', body: JSON.stringify(user) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
-  checkLogin: async (email, password) => { try { return await request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
+  checkLogin: async (email, password) => { try { const result=await request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }); if(result.accessToken)await setAccessToken(result.accessToken); return result; } catch (error) { return error.data || { success: false, msg: error.message }; } },
+  logout: () => clearAccessToken(),
   sendEmailVerification: async email => { try { return await request('/auth/email-verification/send', { method: 'POST', body: JSON.stringify({ email }) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
   verifyEmailCode: async (email, code) => { try { return await request('/auth/email-verification/verify', { method: 'POST', body: JSON.stringify({ email, code }) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
   sendPasswordResetCode: async email => { try { return await request('/auth/password-reset/send', { method: 'POST', body: JSON.stringify({ email }) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
@@ -34,7 +35,10 @@ export const Database = {
   getCloudinaryUploadSignature: (email, fileName) => request('/uploads/cloudinary-signature', { method:'POST', body:JSON.stringify({email,fileName}) }),
   createPayosTopup: (email, coins) => request('/payments/payos/topups', { method: 'POST', body: JSON.stringify({ email, coins }) }),
   getPayosOrder: orderCode => request(`/payments/payos/orders/${encodeURIComponent(orderCode)}`),
-  requestMentorWithdrawal: (email, amount) => request('/wallet/withdraw', { method: 'POST', body: JSON.stringify({ email, amount }) }),
+  saveMentorBankAccount: (email, bankAccount) => request(`/mentors/${encodeURIComponent(email)}/bank-account`, { method:'PUT', body:JSON.stringify({bankAccount}) }),
+  createPayout: (email, amountXu) => request('/payouts', { method:'POST', body:JSON.stringify({email,amountXu}) }),
+  getPayouts: email => request(`/payouts/${encodeURIComponent(email)}`),
+  getPayout: (email, payoutCode) => request(`/payouts/${encodeURIComponent(email)}/${encodeURIComponent(payoutCode)}`),
   getUserSettings: email => request(`/users/${encodeURIComponent(email)}/settings`),
   saveUserSettings: (email, settings) => request(`/users/${encodeURIComponent(email)}/settings`, { method: 'PATCH', body: JSON.stringify(settings) }),
   getSupportTickets: email => request(`/support-tickets/${encodeURIComponent(email)}`),
