@@ -19,6 +19,7 @@ import FindMentor from './components/FindMentor';
 import DocumentDetail from './components/DocumentDetail';
 import DocumentReader from './components/DocumentReader';
 import MyDocuments from './components/MyDocuments';
+import MyCourses from './components/MyCourses';
 import Notifications from './components/Notifications';
 import QuizScreen from './components/QuizScreen';
 import ProfileHub from './components/ProfileHub';
@@ -506,6 +507,7 @@ export default function App() {
       <View style={{ flex: 1 }}>
         {currentTab === 'home' && userRole !== 'mentor' && <HomeDashboard fullName={fullName} userEmail={email} userXu={userXu} hasCheckedInToday={hasCheckedInToday} currentTerm={currentTerm} mentors={mentorProfiles} bookings={myBookings} courses={courses} recentDocuments={mentorDocuments} onNotifications={() => setShowNotifications(true)} onNavigate={(tab) => { setCurrentTab(tab); if (tab === 'docs') setActiveFilterTerm(currentTerm); }} onBook={triggerBooking} />}
         {currentTab === 'home' && userRole === 'mentor' && <MentorHub mentor={currentUser} screen="home" onNavigate={(tab) => setCurrentTab(tab)} />}
+        {currentTab === 'rewards' && <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }} style={styles.lightContainer}><View style={{ flexDirection:'row', alignItems:'center', gap:10, marginBottom:8 }}><TouchableOpacity onPress={() => setCurrentTab('home')}><Ionicons name="arrow-back" size={22} color="#173F83" /></TouchableOpacity><Text style={{ color:'#14213D', fontSize:17, fontWeight:'900' }}>Daily Rewards</Text></View><Gamification userXu={userXu} onUpdateXu={handleUpdateXu} hasCheckedInToday={hasCheckedInToday} onCheckInSuccess={handleCheckInSuccess} /></ScrollView>}
         
         {/* 1. COMMUNITY (GỌI ĐẾN FILE LOGIC RIÊNG BIỆT) */}
         {currentTab === 'community' && userRole !== 'mentor' && (
@@ -533,6 +535,7 @@ export default function App() {
         {currentTab === 'community' && userRole === 'mentor' && <MentorCommunity mentor={currentUser} bookings={myBookings} onOpenChat={() => setCurrentTab('chat')} />}
         {currentTab === 'chat' && <MentorInbox mentors={mentorProfiles} bookings={myBookings} menteeName={fullName} />}
         {currentTab === 'schedule' && <BookingHub bookings={myBookings} onBack={() => setCurrentTab('home')} onUpdate={handleUpdateBooking} menteeName={fullName} />}
+        {currentTab === 'courses' && <MyCourses courses={courses} currentTerm={currentTerm} onBack={() => setCurrentTab('home')} onOpenCourse={() => setCurrentTab('docs')} />}
         {currentTab === 'docs' && userRole === 'mentor' && <MentorDocuments mentor={currentUser} />}
         {currentTab === 'docs' && userRole !== 'mentor' && <MyDocuments documents={[...fptData, ...mentorDocuments].map(doc => ({ ...doc, id: doc.id || doc.code }))} unlockedDocs={unlockedDocs} onOpen={(doc) => setSelectedDocumentDetail(doc)} />}
         {false && currentTab === 'docs' && userRole !== 'mentor' && (
@@ -626,21 +629,21 @@ export default function App() {
       <View style={styles.navBar}>
         <TouchableOpacity style={styles.navItem} onPress={() => setCurrentTab('home')}>
           <Ionicons name={currentTab === 'home' ? 'home' : 'home-outline'} size={20} color={currentTab === 'home' ? '#173F83' : '#71829D'} />
-          <Text style={[styles.navLabel, currentTab === 'home' && styles.navActiveText]}>Trang chủ</Text>
+          <Text style={[styles.navLabel, currentTab === 'home' && styles.navActiveText]}>Home</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={() => setCurrentTab('community')}>
           <Ionicons name={currentTab === 'community' ? 'people' : 'people-outline'} size={20} color={currentTab === 'community' ? '#173F83' : '#71829D'} />
-          <Text style={[styles.navLabel, currentTab === 'community' && styles.navActiveText]}>Cộng đồng</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.navItem} onPress={() => { setCurrentTab('docs'); setActiveFilterTerm(currentTerm); }}>
-          <Ionicons name={currentTab === 'docs' ? 'book' : 'book-outline'} size={20} color={currentTab === 'docs' ? '#173F83' : '#71829D'} />
-          <Text style={[styles.navLabel, currentTab === 'docs' && styles.navActiveText]}>My Documents</Text>
+          <Text style={[styles.navLabel, currentTab === 'community' && styles.navActiveText]}>Community</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.navItem} onPress={() => setCurrentTab('mentor')}>
-          <Ionicons name={currentTab === 'mentor' ? 'hand-left' : 'hand-left-outline'} size={20} color={currentTab === 'mentor' ? '#173F83' : '#71829D'} />
+          <Ionicons name={currentTab === 'mentor' ? 'school' : 'school-outline'} size={20} color={currentTab === 'mentor' ? '#173F83' : '#71829D'} />
           <Text style={[styles.navLabel, currentTab === 'mentor' && styles.navActiveText]}>{userRole === 'mentor' ? 'Sessions' : 'Mentor'}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.navItem} onPress={() => setCurrentTab('schedule')}>
+          <Ionicons name={currentTab === 'schedule' ? 'calendar' : 'calendar-outline'} size={20} color={currentTab === 'schedule' ? '#173F83' : '#71829D'} />
+          <Text style={[styles.navLabel, currentTab === 'schedule' && styles.navActiveText]}>Schedule</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.navItem} onPress={() => setCurrentTab('profile')}>
@@ -775,9 +778,9 @@ const styles = StyleSheet.create({
   btnSaveProfile: { padding: 14, borderRadius: 8, alignItems: 'center' },
   btnLogout: { marginTop: 20, alignItems: 'center', padding: 10, marginBottom: 30 },
 
-  navBar: { flexDirection: 'row', height: 65, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e2e8f0', paddingBottom: 5 },
+  navBar: { flexDirection: 'row', height: 62, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#E8EBF3', paddingBottom: 4 },
   navItem: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   navIcon: { fontSize: 18, color: '#94a3b8' },
-  navLabel: { fontSize: 11, color: '#94a3b8', marginTop: 2 },
-  navActiveText: { color: '#0284c7', fontWeight: 'bold' }
+  navLabel: { fontSize: 9, color: '#7B879D', marginTop: 3, fontWeight: '700' },
+  navActiveText: { color: '#1558D8', fontWeight: '900' }
 });

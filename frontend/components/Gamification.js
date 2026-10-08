@@ -1,78 +1,12 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, Modal } from 'react-native';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function Gamification({ userXu, onUpdateXu, hasCheckedInToday, onCheckInSuccess }) {
-  const [showWheelResult, setShowWheelResult] = useState(false);
-  const [wheelMessage, setWheelMessage] = useState('');
-  const [wheelStatus, setWheelStatus] = useState('plus'); 
-
-  const handleCheckIn = () => {
-    if (hasCheckedInToday) {
-      Alert.alert('Thông báo 📆', 'Hôm nay bạn đã điểm danh rồi!');
-      return;
-    }
-    onCheckInSuccess();
-    Alert.alert('Thành công 🪙', 'Bạn đã nhận được +1 Xu!');
-  };
-
-  const handleLuckyWheel = () => {
-    if (userXu < 2) {
-      Alert.alert('Thất bại 🛑', 'Bạn cần tối thiểu 2 Xu để tham gia Vòng quay may mắn!');
-      return;
-    }
-    const rewards = [-2, -1, 3, 5];
-    const randomReward = rewards[Math.floor(Math.random() * rewards.length)];
-    onUpdateXu(randomReward);
-    
-    if (randomReward > 0) {
-      setWheelStatus('plus');
-      setWheelMessage(`Chúc mừng bạn trúng lớn! Vòng quay đem về cho ví của bạn thêm +${randomReward} Xu 🪙`);
-    } else {
-      setWheelStatus('minus');
-      setWheelMessage(`Đen đủi rồi! Vòng quay lấy đi mất của bạn ${Math.abs(randomReward)} Xu từ tài khoản 🥲`);
-    }
-    setShowWheelResult(true);
-  };
-
-  return (
-    <View>
-      <Modal visible={showWheelResult} animationType="fade" transparent={true}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalEmoji}>{wheelStatus === 'plus' ? '🎉🎁👑' : '💸💔👻'}</Text>
-            <Text style={[styles.modalTitle, { color: wheelStatus === 'plus' ? '#10b981' : '#ef4444' }]}>
-              {wheelStatus === 'plus' ? 'KẾT QUẢ: THẮNG LỚN!' : 'KẾT QUẢ: MẤT XU'}
-            </Text>
-            <Text style={styles.modalSub}>{wheelMessage}</Text>
-            <TouchableOpacity style={[styles.btnPopupClose, { backgroundColor: wheelStatus === 'plus' ? '#10b981' : '#ef4444' }]} onPress={() => setShowWheelResult(false)}>
-              <Text style={{ color: '#fff', fontWeight: 'bold' }}>XÁC NHẬN</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <Text style={styles.sectionTitle}>Nhiệm vụ nhận Xu tự động</Text>
-      <View style={styles.row}>
-        <TouchableOpacity style={[styles.btnAction, { backgroundColor: hasCheckedInToday ? '#cbd5e1' : '#10b981' }]} onPress={handleCheckIn}>
-          <Text style={styles.btnText}>{hasCheckedInToday ? '✓ Đã Điểm Danh' : '📆 Điểm Danh'}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.btnAction, {backgroundColor: '#8b5cf6'}]} onPress={handleLuckyWheel}>
-          <Text style={styles.btnText}>🎡 Vòng Quay (-2đ)</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+  const [checked, setChecked] = useState(hasCheckedInToday);
+  const checkIn = () => { if (checked) return Alert.alert('Điểm danh', 'Bạn đã nhận Xu hôm nay rồi.'); onCheckInSuccess(); setChecked(true); };
+  const quiz = () => { onUpdateXu(1); Alert.alert('Hoàn thành AI Quiz', 'Bạn nhận được +1 Xu.'); };
+  return <View><View style={s.wallet}><View><Text style={s.walletLabel}>HỆ THỐNG THƯỞNG</Text><Text style={s.walletTitle}>Daily Rewards</Text></View><View style={s.coin}><Text style={s.coinText}>◉ {userXu} Xu</Text></View></View><View style={s.streak}><View style={s.streakTop}><View><Text style={s.streakTitle}>🔥 4 Day Streak</Text><Text style={s.muted}>Tiếp tục học mỗi ngày để duy trì chuỗi của bạn!</Text></View><View style={s.week}><Text style={s.weekText}>Tuần{`\n`}12</Text></View></View><View style={s.days}>{['T2','T3','T4','Hôm nay','T6','T7','CN'].map((day, index) => <View key={day} style={s.day}><View style={[s.dayCircle, index < 4 && s.dayDone, index === 3 && s.dayToday]}><Text style={s.dayTick}>{index < 3 ? '✓' : index === 3 ? '🔥' : index + 1}</Text></View><Text style={s.dayLabel}>{day}</Text><Text style={s.dayXu}>{index === 3 ? '+1 Xu' : index < 3 ? '+1' : index === 6 ? '+5 Xu' : '+1'}</Text></View>)}</View><View style={s.progressLine}><View style={s.progressFill}/></View><Text style={s.progressText}>Tiến độ tuần học tập <Text style={{ color:'#1558D8' }}>4/7 ngày (57%)</Text></Text></View><Text style={s.sectionTitle}>Today's Activities</Text><Text style={s.muted}>Hoàn thành các nhiệm vụ học tập để nhận Xu thưởng.</Text><Activity icon="calendar-outline" title="Daily Check-in" text="Điểm danh hôm nay để nhận quà." action={checked ? 'Đã nhận' : '+1 Xu'} done={checked} onPress={checkIn}/><Activity icon="book-outline" title="Đọc một tài liệu" text="Xem tài liệu môn PRF192 hôm nay." action="Bắt đầu →"/><Activity icon="bulb-outline" title="Hoàn thành AI Quiz" text="Luyện tập 5 câu hỏi nhanh." action="+1 Xu" onPress={quiz}/><Activity icon="shield-checkmark-outline" title="Giới hạn nhãn 3 Xu/ngày" text="Xu thưởng được tự cộng khi bạn hoàn thành." action="Quy chuẩn" muted/><View style={s.tip}><Ionicons name="information-circle-outline" size={16} color="#1558D8"/><Text style={s.tipText}>Tìm hiểu cách sử dụng Xu trong Mentoring →</Text></View></View>;
 }
-
-const styles = StyleSheet.create({
-  sectionTitle: { fontSize: 15, fontWeight: 'bold', color: '#334155', marginTop: 10, marginBottom: 12 },
-  row: { flexDirection: 'row', justifyContent: 'space-between' },
-  btnAction: { flex: 0.48, padding: 14, borderRadius: 10, alignItems: 'center' },
-  btnText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 30 },
-  modalCard: { backgroundColor: '#fff', width: '100%', padding: 24, borderRadius: 16, alignItems: 'center', borderTopWidth: 5, borderTopColor: '#ea580c' },
-  modalEmoji: { fontSize: 32, marginBottom: 10 },
-  modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 12, textAlign: 'center' },
-  modalSub: { fontSize: 14, color: '#475569', textAlign: 'center', marginBottom: 20, lineHeight: 20 },
-  btnPopupClose: { width: '100%', padding: 12, borderRadius: 8, alignItems: 'center' }
-});
+function Activity({ icon, title, text, action, done, onPress, muted }) { return <TouchableOpacity disabled={muted} onPress={onPress} style={s.activity}><View style={[s.activityIcon, done && { backgroundColor:'#E0F8EC' }]}><Ionicons name={icon} size={18} color={done ? '#11A968' : '#1558D8'}/></View><View style={{ flex:1 }}><Text style={s.activityTitle}>{title}</Text><Text style={s.activityText}>{text}</Text></View><Text style={[s.action, done && s.actionDone]}>{action}</Text></TouchableOpacity>; }
+const s = StyleSheet.create({ wallet:{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginTop:4, marginBottom:12 }, walletLabel:{ color:'#627394', fontSize:8, fontWeight:'900' }, walletTitle:{ color:'#152440', fontSize:18, fontWeight:'900', marginTop:2 }, coin:{ backgroundColor:'#EEF3FF', borderRadius:14, paddingHorizontal:10, paddingVertical:7 }, coinText:{ color:'#1558D8', fontSize:10, fontWeight:'900' }, streak:{ backgroundColor:'#fff', borderWidth:1, borderColor:'#E4E8F3', borderRadius:14, padding:12, marginTop:8 }, streakTop:{ flexDirection:'row', justifyContent:'space-between' }, streakTitle:{ color:'#1558D8', fontSize:12, fontWeight:'900' }, muted:{ color:'#7D89A0', fontSize:9, marginTop:3 }, week:{ backgroundColor:'#EEF2FF', borderRadius:8, padding:7, alignItems:'center' }, weekText:{ color:'#6580B9', fontSize:8, fontWeight:'800', textAlign:'center' }, days:{ flexDirection:'row', justifyContent:'space-between', marginTop:14 }, day:{ alignItems:'center', width:31 }, dayCircle:{ height:26, width:26, borderRadius:13, backgroundColor:'#EEF1F8', alignItems:'center', justifyContent:'center' }, dayDone:{ backgroundColor:'#DFE9FF' }, dayToday:{ backgroundColor:'#1558D8' }, dayTick:{ color:'#62728E', fontWeight:'900', fontSize:9 }, dayLabel:{ color:'#687892', fontSize:7, marginTop:4, textAlign:'center' }, dayXu:{ color:'#9AA5B7', fontSize:6, marginTop:1 }, progressLine:{ height:5, borderRadius:4, backgroundColor:'#E5E9F3', marginTop:14 }, progressFill:{ height:'100%', width:'57%', borderRadius:4, backgroundColor:'#2865E9' }, progressText:{ color:'#78849A', fontSize:8, marginTop:5 }, sectionTitle:{ color:'#152440', fontSize:14, fontWeight:'900', marginTop:19 }, activity:{ minHeight:58, flexDirection:'row', alignItems:'center', gap:9, borderRadius:11, padding:9, backgroundColor:'#fff', borderWidth:1, borderColor:'#E5E8F1', marginTop:8 }, activityIcon:{ height:32, width:32, borderRadius:8, backgroundColor:'#EAF0FF', alignItems:'center', justifyContent:'center' }, activityTitle:{ color:'#26334C', fontSize:10, fontWeight:'900' }, activityText:{ color:'#77839A', fontSize:8, marginTop:3 }, action:{ color:'#1558D8', backgroundColor:'#EAF0FF', borderRadius:7, overflow:'hidden', paddingHorizontal:7, paddingVertical:5, fontSize:8, fontWeight:'900' }, actionDone:{ color:'#0B9661', backgroundColor:'#DFF8EB' }, tip:{ flexDirection:'row', gap:6, marginTop:10, padding:10, backgroundColor:'#EEF3FF', borderRadius:10 }, tipText:{ color:'#3C63BE', fontSize:9, fontWeight:'800' } });

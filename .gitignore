@@ -8,6 +8,10 @@ node_modules/
 .expo/
 dist/
 web-build/
+frontend/web-preview/
+frontend/web-preview-check/
+frontend/ui-check/
+frontend/ui-check-2/
 expo-env.d.ts
 
 # Native

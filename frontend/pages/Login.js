@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Image, KeyboardAvoidingView, NativeModules, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { Database } from '../data/database';
 import AuthSnowflakes from '../components/AuthSnowflakes';
 
@@ -12,8 +11,13 @@ export default function Login({ onLoginSuccess, onSwitchToRegister, onForgotPass
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const googleClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+  const canUseNativeGoogle = Boolean(NativeModules.RNGoogleSignin);
   useEffect(() => setEmail(prefilledEmail), [prefilledEmail]);
-  useEffect(() => { if (googleClientId) GoogleSignin.configure({ webClientId: googleClientId }); }, [googleClientId]);
+  useEffect(() => {
+    if (!googleClientId || !canUseNativeGoogle) return;
+    const { GoogleSignin } = require('@react-native-google-signin/google-signin');
+    GoogleSignin.configure({ webClientId: googleClientId });
+  }, [canUseNativeGoogle, googleClientId]);
   const login = async () => {
     if (!email.trim() || !password) return setError('Vui lòng nhập email và mật khẩu.');
     setLoading(true); setError('');
@@ -24,8 +28,10 @@ export default function Login({ onLoginSuccess, onSwitchToRegister, onForgotPass
   };
   const loginWithGoogle = async () => {
     if (!googleClientId) return setError('Đăng nhập Google chưa được cấu hình cho bản ứng dụng này.');
+    if (!canUseNativeGoogle) return setError('Google Sign-In cần bản PSIFU Development Build; Expo Go chỉ dùng để xem giao diện và đăng nhập thường.');
     setLoading(true); setError('');
     try {
+      const { GoogleSignin } = require('@react-native-google-signin/google-signin');
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       const signInResult = await GoogleSignin.signIn();
       const idToken = signInResult?.idToken || signInResult?.data?.idToken;
