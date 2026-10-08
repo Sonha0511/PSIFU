@@ -99,7 +99,7 @@ const toClient = doc => { const value = doc.toObject ? doc.toObject() : doc; con
 const JWT_SECRET = process.env.JWT_SECRET;
 const PASSWORD_HASH_ROUNDS = 10;
 const authLimiter = rateLimit({windowMs:15*60*1000,limit:8,standardHeaders:'draft-8',legacyHeaders:false,message:{success:false,msg:'Bạn đã thử quá nhiều lần. Vui lòng thử lại sau 15 phút.'}});
-const otpLimiter = rateLimit({windowMs:15*60*1000,limit:5,standardHeaders:'draft-8',legacyHeaders:false,keyGenerator:req=>`${req.ip}:${cleanEmail(req.body?.email)}`,message:{success:false,msg:'Bạn đã yêu cầu OTP quá nhiều lần. Vui lòng thử lại sau 15 phút.'}});
+const otpLimiter = rateLimit({windowMs:15*60*1000,limit:5,standardHeaders:'draft-8',legacyHeaders:false,keyGenerator:req=>`${rateLimit.ipKeyGenerator(req.ip)}:${cleanEmail(req.body?.email)}`,message:{success:false,msg:'Bạn đã yêu cầu OTP quá nhiều lần. Vui lòng thử lại sau 15 phút.'}});
 const emailPattern=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const cleanEmail=value=>String(value||'').trim().toLowerCase();
 const validPassword=value=>typeof value==='string'&&value.length>=8&&value.length<=72;
