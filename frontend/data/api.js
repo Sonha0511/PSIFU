@@ -1,7 +1,9 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000/api';
+const TOKEN_KEY='@psifu_access_token';
 let memoryToken=null;
-export async function setAccessToken(token){memoryToken=token||null;}
-export async function getAccessToken(){return memoryToken;}
+export async function setAccessToken(token){memoryToken=token||null;if(token)await AsyncStorage.setItem(TOKEN_KEY,token);else await AsyncStorage.removeItem(TOKEN_KEY);}
+export async function getAccessToken(){if(memoryToken)return memoryToken;memoryToken=await AsyncStorage.getItem(TOKEN_KEY);return memoryToken;}
 export async function clearAccessToken(){return setAccessToken(null);}
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 

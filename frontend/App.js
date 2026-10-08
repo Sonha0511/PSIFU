@@ -132,6 +132,12 @@ export default function App() {
     AsyncStorage.getItem('@psifu_has_seen_onboarding').then(value => setHasSeenOnboarding(value === 'true'));
   }, []);
 
+  useEffect(() => {
+    Database.getCurrentUser().then(result => {
+      if (result?.user) handleLoginSuccess(result.user);
+    }).catch(() => Database.logout());
+  }, []);
+
   const finishOnboarding = async () => {
     await AsyncStorage.setItem('@psifu_has_seen_onboarding', 'true');
     setHasSeenOnboarding(true);
@@ -210,16 +216,13 @@ export default function App() {
     setShowOnboarding(false);
   };
 
-  const handleUpdateXu = async (amount) => {
-    const nextXu = userXu + amount;
-    setUserXu(nextXu);
-    await Database.updateUserData(email, { userXu: nextXu });
+  const handleUpdateXu = async () => {
+    Alert.alert('Thông báo', 'Xu chỉ được thay đổi bởi các giao dịch đã xác minh trên máy chủ.');
   };
 
   const handleCheckInSuccess = async () => {
-    setUserXu(prev => prev + 1);
-    setHasCheckedInToday(true);
-    await Database.updateUserData(email, { userXu: userXu + 1, hasCheckedInToday: true });
+    try { const result=await Database.claimDailyCheckIn(); setUserXu(result.userXu); setCurrentUser(previous=>({...previous,userXu:result.userXu,hasCheckedInToday:true})); setHasCheckedInToday(true); return true; }
+    catch(error) { Alert.alert('Điểm danh', error?.data?.msg || 'Chưa thể điểm danh lúc này.'); return false; }
   };
 
   const handleSaveProfile = async () => {
@@ -252,7 +255,7 @@ export default function App() {
       Alert.alert('Thiếu Xu 🛑', 'Bạn không đủ Xu để mở tài liệu này!');
       return;
     }
-    if (!doc.mentorEmail) { await handleUpdateXu(-fee); setUnlockedDocs(prev => ({ ...prev, [docId]: true })); setNotice({ title: 'Đã mở khóa tài liệu', message: 'Tài liệu đã sẵn sàng trong mục Tài liệu của tôi.' }); return; }
+    if (!doc.mentorEmail) { setUnlockedDocs(prev => ({ ...prev, [docId]: true })); setNotice({ title: 'Đã mở tài liệu', message: 'Học liệu hệ thống đã sẵn sàng trong mục Tài liệu của tôi.' }); return; }
     try { const result = await Database.unlockMentorDocument(docId, email); setUserXu(result.userXu); setCurrentUser(previous => ({ ...previous, userXu:result.userXu })); setUnlockedDocs(prev => ({ ...prev, [docId]: true })); setNotice({ title:'Đã mở khóa tài liệu', message:'Quyền đọc đã được lưu vào tài khoản của bạn.' }); }
     catch(error) { Alert.alert('Không thể mở khóa', error?.data?.msg || 'Vui lòng thử lại.'); }
   };
@@ -277,25 +280,12 @@ export default function App() {
     catch (error) { const code=error?.data?.code; Alert.alert(code === 'PREMIUM_REQUIRED' ? 'Đã dùng hết lượt Quiz Free' : 'Đã đạt giới hạn Quiz', code === 'PREMIUM_REQUIRED' ? 'Nâng cấp Premium để có nhiều lượt AI Quiz và phân tích chi tiết hơn.' : 'Bạn đã dùng hết lượt Quiz trong kỳ này.'); }
   };
 
-  const handleBuyPremium = () => {
-    Alert.alert(
-      'Xác nhận đăng ký Premium 💎',
-      'Premium mở thư viện học liệu Premium, nhiều lượt AI Quiz hơn và phân tích kết quả. Tài liệu Marketplace của mentor vẫn dùng Xu riêng.',
-      [
-        { text: 'Hủy' },
-        { text: 'Nâng cấp ngay', onPress: async () => {
-            const result = await Database.activatePremiumMock(email);
-            if (result.success) { setIsPremium(true); setCurrentUser(previous => ({ ...previous, subscription: result.subscription })); Alert.alert('Chúc mừng ✨', 'PSIFU Premium đã được kích hoạt trong môi trường demo.'); }
-          }
-        }
-      ]
-    );
-  };
+  const handleBuyPremium = () => Alert.alert('PSIFU Premium', 'Thanh toán Premium đang được hoàn thiện. Bạn vẫn có thể nạp Xu và mở khóa tài liệu Mentor qua PayOS.');
 
   const triggerBooking = async (mentor, course = '') => {
     const today = new Date();
     const defaultDate = `${today.getDate()}/${today.getMonth() + 1}/${today.getFullYear()}`;
-    const bookings = await Database.getBookings();
+    const availability = await Database.getMentorAvailability(mentor.id, defaultDate);
     setSelectedMentor(mentor.name);
     setSelectedMentorId(mentor.id);
     setSelectedMentorSlots(mentor.availableSlots || []);
@@ -304,7 +294,7 @@ export default function App() {
     setTopUpStandalone(false);
     setBookingDate(defaultDate);
     setBookingTime('');
-    setOccupiedBookingTimes(bookings.filter(item => item.mentorEmail === mentor.id && item.dateTime.startsWith(defaultDate)).map(item => item.dateTime.split(' ')[1]));
+    setOccupiedBookingTimes(availability.occupiedTimes || []);
     setBookingNote('');
     setShowBookingModal(true);
   };
@@ -333,8 +323,7 @@ export default function App() {
       return false;
     }
     setShowBookingModal(false);
-    setUserXu(current => current - selectedMentorFee);
-    await Database.updateUserData(email, { userXu: userXu - selectedMentorFee });
+    if(bookingResult?.userXu!==undefined){setUserXu(bookingResult.userXu);setCurrentUser(previous=>({...previous,userXu:bookingResult.userXu}));}
     const updatedBookings = await Database.getBookings();
     setMyBookings(updatedBookings.filter(item => item.menteeName === fullName));
     Alert.alert('Đăng ký thành công', 'Yêu cầu đã gửi đến Mentor và sẽ xuất hiện trên lịch của Mentor.');
@@ -343,10 +332,10 @@ export default function App() {
   };
 
   const selectBookingDate = async (date) => {
-    const bookings = await Database.getBookings();
+    const availability = await Database.getMentorAvailability(selectedMentorId, date);
     setBookingDate(date);
     setBookingTime('');
-    setOccupiedBookingTimes(bookings.filter(item => item.mentorEmail === selectedMentorId && item.dateTime.startsWith(date)).map(item => item.dateTime.split(' ')[1]));
+    setOccupiedBookingTimes(availability.occupiedTimes || []);
   };
 
   const themeContainer = isDarkMode ? styles.darkContainer : styles.lightContainer;
@@ -580,8 +569,8 @@ export default function App() {
         {/* 3. MENTOR */}
         {currentTab === 'mentor' && userRole !== 'mentor' && <FindMentor mentors={mentorProfiles} courses={courses} currentTerm={currentTerm} bookings={myBookings} onBook={triggerBooking} />}
 
-        {currentTab === 'profile' && userRole === 'mentor' && <MentorProfileHub user={{...currentUser, avatarUrl}} onUpdate={async next => { setCurrentUser(next); await Database.updateUserData(email, { fullName: next.fullName, mentorBio: next.mentorBio, mentorFee: next.mentorFee, mentorCourses: next.mentorCourses, bankAccount: next.bankAccount, availableXu: next.availableXu }); }} onLogout={() => setIsLoggedIn(false)} />}
-        {currentTab === 'profile' && userRole !== 'mentor' && <ProfileHub user={{...currentUser, avatarUrl}} university={university} currentTerm={currentTerm} userXu={userXu} bookings={myBookings} mentors={mentorProfiles} documents={[...fptData, ...mentorDocuments]} unlockedDocs={unlockedDocs} onEdit={() => setShowEditProfileModal(true)} onTopUp={() => {setTopUpStandalone(true);setShowTopUpModal(true);}} onOpenDocument={(doc) => setSelectedDocumentDetail(doc)} onOpenSchedule={() => setCurrentTab('schedule')} onOpenChat={() => setCurrentTab('chat')} onChangePassword={() => setShowChangePassword(true)} onClaimReward={async () => { const next = userXu + 1; setUserXu(next); await Database.updateUserData(email, { userXu: next }); setNotice({ title: 'Nhận thưởng thành công', message: 'Đã cộng 1 Xu vào Ví PSIFU.' }); }} onUpdateBooking={handleUpdateBooking} onLogout={() => setIsLoggedIn(false)} />}
+        {currentTab === 'profile' && userRole === 'mentor' && <MentorProfileHub user={{...currentUser, avatarUrl}} onUpdate={async next => { setCurrentUser(next); await Database.updateUserData(email, { fullName: next.fullName, mentorBio: next.mentorBio, mentorFee: next.mentorFee, mentorCourses: next.mentorCourses }); }} onLogout={handleLogout} />}
+        {currentTab === 'profile' && userRole !== 'mentor' && <ProfileHub user={{...currentUser, avatarUrl}} university={university} currentTerm={currentTerm} userXu={userXu} bookings={myBookings} mentors={mentorProfiles} documents={[...fptData, ...mentorDocuments]} unlockedDocs={unlockedDocs} onEdit={() => setShowEditProfileModal(true)} onTopUp={() => {setTopUpStandalone(true);setShowTopUpModal(true);}} onOpenDocument={(doc) => setSelectedDocumentDetail(doc)} onOpenSchedule={() => setCurrentTab('schedule')} onOpenChat={() => setCurrentTab('chat')} onChangePassword={() => setShowChangePassword(true)} onClaimReward={() => setNotice({ title: 'Phần thưởng', message: 'Hãy điểm danh trong Daily Rewards để nhận Xu.' })} onUpdateBooking={handleUpdateBooking} onLogout={handleLogout} />}
 
         {/* 4. PROFILE */}
         {false && (
