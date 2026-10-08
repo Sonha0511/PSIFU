@@ -370,7 +370,8 @@ export default function App() {
     if (authScreen === 'resetPassword') {
       return <ResetPassword email={loginPrefillEmail} otpCode={resetOtpCode} onBack={() => setAuthScreen('resetVerify')} onComplete={(resetEmail) => { setLoginPrefillEmail(resetEmail); setResetOtpCode(''); setAuthScreen('login'); }} />;
     } else {
-      return <Register onSwitchToLogin={() => setAuthScreen('login')} onRegisterSuccess={(registeredEmail) => { setLoginPrefillEmail(registeredEmail); setAuthScreen('login'); }} />;
+      if (authScreen === 'registerVerify') return <VerifyEmail email={loginPrefillEmail} onBack={() => setAuthScreen('register')} onVerified={(verifiedEmail) => { setLoginPrefillEmail(verifiedEmail); setAuthScreen('login'); }} />;
+      return <Register onSwitchToLogin={() => setAuthScreen('login')} onRegisterSuccess={(registeredEmail) => { setLoginPrefillEmail(registeredEmail); setAuthScreen('registerVerify'); }} />;
     }
   }
 
