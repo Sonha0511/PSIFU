@@ -39,6 +39,7 @@ export const Database = {
   getMentorDocumentAccess: (id,email) => request(`/mentor-documents/${encodeURIComponent(id)}/access?email=${encodeURIComponent(email)}`),
   saveMentorDocument: document => request('/mentor-documents', { method: 'POST', body: JSON.stringify(document) }),
   getCloudinaryUploadSignature: (email, fileName) => request('/uploads/cloudinary-signature', { method:'POST', body:JSON.stringify({email,fileName}) }),
+  getAvatarUploadSignature: () => request('/uploads/avatar-signature', { method:'POST' }),
   createPayosTopup: (email, coins) => request('/payments/payos/topups', { method: 'POST', body: JSON.stringify({ email, coins }) }),
   getPayosOrder: orderCode => request(`/payments/payos/orders/${encodeURIComponent(orderCode)}`),
   saveMentorBankAccount: (email, bankAccount) => request(`/mentors/${encodeURIComponent(email)}/bank-account`, { method:'PUT', body:JSON.stringify({bankAccount}) }),

@@ -159,7 +159,7 @@ export default function App() {
   const handleLoginSuccess = (user) => {
     setCurrentUser(user);
     setUserRole(user.role || 'mentee');
-    Database.getMentors().then(users => setMentorProfiles(users.map((item, index) => ({ id: item.email, name: item.fullName, role: item.specialty || 'Mentor PSIFU', avatar: '👨‍🏫', bio: `Mentor chuyên môn ${item.specialty || 'đa ngành'}.`, post: 'Sẵn sàng hỗ trợ mentee.', courses: item.email === 'mentor.se@psifu.vn' ? ['PRF192', 'PRO192', 'CSD201', 'DBI202', 'SDN302'] : item.email === 'mentor.data@psifu.vn' ? ['MAE101', 'MAD101', 'DBI202'] : ['MKT101'], availableSlots: index === 2 ? [] : index === 1 ? ['09:00 - 10:00', '19:00 - 20:00'] : ['09:00 - 10:00', '14:00 - 15:00', '19:00 - 20:00'], fee: index === 1 ? 40 : 50 }))));
+    Database.getMentors().then(users => setMentorProfiles(users.map(item => ({ id: item.email, email: item.email, name: item.fullName, role: item.specialty || 'Mentor PSIFU', avatar: item.avatarUrl || '👨‍🏫', bio: item.mentorBio || `Mentor chuyên môn ${item.specialty || 'đa ngành'}.`, post: 'Sẵn sàng hỗ trợ mentee.', courses: item.mentorCourses || [], availableSlots: item.mentorAvailability?.accepting === false ? [] : (item.mentorAvailability?.slots || []).flatMap(slot => slot.ranges || []), fee: Number(item.mentorFee || 50) }))));
     Database.getBookings().then(bookings => setMyBookings(user.role === 'mentor' ? bookings.filter(item => item.mentorEmail === user.email) : bookings.filter(item => item.menteeName === user.fullName)));
     (user.role === 'mentor' ? Database.getMentorDocuments(user.email) : Database.getPublishedMentorDocuments()).then(setMentorDocuments).catch(() => setMentorDocuments([]));
     Database.getDocumentUnlocks(user.email).then(ids => setUnlockedDocs(Object.fromEntries(ids.map(id => [id, true])))).catch(() => setUnlockedDocs({}));
@@ -244,7 +244,13 @@ export default function App() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) { Alert.alert('Cần quyền truy cập ảnh', 'Hãy cho phép PSIFU truy cập thư viện ảnh để đổi ảnh đại diện.'); return; }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.65 });
-    if (!result.canceled) setAvatarUrl(result.assets[0].uri);
+    if (result.canceled) return;
+    try {
+      const asset = result.assets[0]; const signature = await Database.getAvatarUploadSignature();
+      const form = new FormData(); form.append('file', { uri: asset.uri, type: asset.mimeType || 'image/jpeg', name: asset.fileName || 'avatar.jpg' }); form.append('api_key', signature.apiKey); form.append('timestamp', String(signature.timestamp)); form.append('folder', signature.folder); form.append('public_id', signature.publicId); form.append('overwrite', 'true'); form.append('signature', signature.signature);
+      const upload = await fetch(`https://api.cloudinary.com/v1_1/${signature.cloudName}/image/upload`, { method:'POST', body:form }); const uploaded = await upload.json(); if (!upload.ok || !uploaded.secure_url) throw new Error(upload.error?.message);
+      setAvatarUrl(uploaded.secure_url);
+    } catch (error) { Alert.alert('Không thể tải ảnh lên', error?.message || 'Vui lòng thử lại.'); }
   };
 
   const handleUnlockDoc = async (doc) => {
@@ -523,7 +529,7 @@ export default function App() {
 
         {/* 2. TÀI LIỆU */}
         {currentTab === 'community' && userRole === 'mentor' && <MentorCommunity mentor={currentUser} bookings={myBookings} onOpenChat={() => setCurrentTab('chat')} />}
-        {currentTab === 'chat' && <MentorInbox mentors={mentorProfiles} bookings={myBookings} menteeName={fullName} />}
+        {currentTab === 'chat' && <MentorInbox mentors={mentorProfiles} bookings={myBookings} menteeName={fullName} currentUserEmail={email} />}
         {currentTab === 'schedule' && <BookingHub bookings={myBookings} onBack={() => setCurrentTab('home')} onUpdate={handleUpdateBooking} menteeName={fullName} />}
         {currentTab === 'courses' && <MyCourses courses={courses} currentTerm={currentTerm} onBack={() => setCurrentTab('home')} onOpenCourse={() => setCurrentTab('docs')} />}
         {currentTab === 'docs' && userRole === 'mentor' && <MentorDocuments mentor={currentUser} />}
@@ -603,8 +609,8 @@ export default function App() {
             <View style={[styles.profileFormBox, themeCard]}>
               <Text style={[styles.premiumHeaderTitle, themeText]}>Nâng Cấp Gói Premium PSIFU 💎</Text>
               <Text style={styles.premiumDesc}>Xem không giới hạn mọi tài liệu độc quyền chất lượng cao từ tất cả các mentor, tăng tốc lộ trình học tập vượt trội.</Text>
-              <TouchableOpacity style={[styles.btnSaveProfile, {backgroundColor: isPremium ? '#64748b' : '#b45309'}]} onPress={handleBuyPremium} disabled={isPremium}>
-                <Text style={{color: '#fff', fontWeight: 'bold'}}>{isPremium ? 'ĐÃ SỞ HỮU PREMIUM' : 'MUA GÓI PREMIUM'}</Text>
+              <TouchableOpacity style={[styles.btnSaveProfile, {backgroundColor: '#64748b'}]} onPress={handleBuyPremium}>
+                <Text style={{color: '#fff', fontWeight: 'bold'}}>{isPremium ? 'ĐÃ SỞ HỮU PREMIUM' : 'PREMIUM · SẮP RA MẮT'}</Text>
               </TouchableOpacity>
             </View>
 

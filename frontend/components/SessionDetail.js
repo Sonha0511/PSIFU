@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import JitsiSession from './JitsiSession';
 
 export default function SessionDetail({ booking = {}, onBack, onChat }) {
+  booking = { ...booking, fee: booking.fee ?? '—' };
   const [inMeeting, setInMeeting] = useState(false);
   const bookingStatus = String(booking.status || '').toLowerCase();
   const confirmed = bookingStatus.includes('xác nhận') || bookingStatus.includes('confirmed');
