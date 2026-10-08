@@ -2,11 +2,13 @@ import { clearAccessToken, request, setAccessToken } from './api';
 
 export const Database = {
   getAllUsers: () => request('/users'),
+  getMentors: () => request('/mentors'),
   getCourses: (term, major = 'Computing', specialization = 'SE', track = '') => request(`/courses?term=${encodeURIComponent(term)}&major=${encodeURIComponent(major)}&specialization=${encodeURIComponent(specialization)}&track=${encodeURIComponent(track)}`),
   saveUser: async user => { try { return await request('/users', { method: 'POST', body: JSON.stringify(user) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
   checkLogin: async (email, password) => { try { const result=await request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }); if(result.accessToken)await setAccessToken(result.accessToken); return result; } catch (error) { return error.data || { success: false, msg: error.message }; } },
   loginWithGoogle: async idToken => { try { const result=await request('/auth/google', { method: 'POST', body: JSON.stringify({ idToken }) }); if(result.accessToken)await setAccessToken(result.accessToken); return result; } catch (error) { return error.data || { success: false, msg: error.message }; } },
   logout: () => clearAccessToken(),
+  logoutAllDevices: async () => { const result=await request('/auth/logout-all', { method:'POST' }); await clearAccessToken(); return result; },
   sendEmailVerification: async email => { try { return await request('/auth/email-verification/send', { method: 'POST', body: JSON.stringify({ email }) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
   verifyEmailCode: async (email, code) => { try { return await request('/auth/email-verification/verify', { method: 'POST', body: JSON.stringify({ email, code }) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
   sendPasswordResetCode: async email => { try { return await request('/auth/password-reset/send', { method: 'POST', body: JSON.stringify({ email }) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
