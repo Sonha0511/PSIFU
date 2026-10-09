@@ -133,6 +133,28 @@ app.get('/payment/return', (_req, res) => res.type('html').send('<!doctype html>
 app.get('/payment/cancel', (_req, res) => res.type('html').send('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>PSIFU Payment</title></head><body style="font-family:system-ui;text-align:center;padding:56px 20px;background:#f8faff;color:#102a56"><h1>Thanh toán chưa hoàn tất</h1><p>Bạn có thể quay lại ứng dụng PSIFU để thử lại khi sẵn sàng.</p></body></html>'));
 app.get('/api/courses', async (req, res) => { const filter = { major: req.query.major || 'Computing', specialization: req.query.specialization || 'SE' }; if (req.query.track !== undefined) filter.track = req.query.track; if (req.query.term) filter.term = req.query.term; res.json((await Course.find(filter).sort({ term: 1, code: 1 })).map(toClient)); });
 app.get('/api/users',requireAuth,requireRole('admin'), async (_req, res) => res.json((await User.find().sort({ createdAt: -1 })).map(toClient)));
+// Aggregated server-side data for the admin portal. Keep reporting queries here so
+// browsers never need to download raw collections merely to calculate charts.
+app.get('/api/admin/dashboard',requireAuth,requireRole('admin'),async(req,res)=>{
+  const now=new Date();
+  const defaultFrom=new Date(now); defaultFrom.setDate(defaultFrom.getDate()-29); defaultFrom.setHours(0,0,0,0);
+  const parseDate=(value,fallback)=>{const date=value?new Date(String(value)):fallback;return Number.isNaN(date.getTime())?null:date;};
+  const from=parseDate(req.query.from,defaultFrom),to=parseDate(req.query.to,now);
+  if(!from||!to||from>to)return res.status(400).json({success:false,msg:'Khoảng thời gian không hợp lệ.'});
+  from.setHours(0,0,0,0); to.setHours(23,59,59,999);
+  const range={createdAt:{$gte:from,$lte:to}};
+  const byDay=(Model,match={},valueField)=>Model.aggregate([
+    {$match:{...match,...range}},
+    {$group:{_id:{$dateToString:{format:'%Y-%m-%d',date:'$createdAt',timezone:'Asia/Ho_Chi_Minh'}},value:valueField?{$sum:`$${valueField}`} : {$sum:1}}},
+    {$project:{_id:0,date:'$_id',value:1}},{$sort:{date:1}}
+  ]);
+  const [users,mentors,mentees,bookings,documents,ticketsOpen,payoutsPending,paymentStats,newUsers,bookingsByDay,topupsByDay,ticketsByDay]=await Promise.all([
+    User.countDocuments(),User.countDocuments({role:'mentor'}),User.countDocuments({role:'mentee'}),Booking.countDocuments(range),MentorDocument.countDocuments({status:'PUBLISHED'}),SupportTicket.countDocuments({status:{$in:['OPEN','IN_PROGRESS']}}),Payout.countDocuments({status:'PROCESSING'}),
+    PaymentOrder.aggregate([{$match:{status:'PAID',...range}},{$group:{_id:null,count:{$sum:1},amount:{$sum:'$amount'}}}]),
+    byDay(User),byDay(Booking),byDay(PaymentOrder,{status:'PAID'},'amount'),byDay(SupportTicket)
+  ]);
+  res.json({success:true,range:{from:from.toISOString(),to:to.toISOString()},totals:{users,mentors,mentees,bookings,documents,ticketsOpen,payoutsPending,paidOrders:paymentStats[0]?.count||0,revenueVnd:paymentStats[0]?.amount||0},charts:{newUsers,newBookings:bookingsByDay,topupsVnd:topupsByDay,newTickets:ticketsByDay}});
+});
 // Admin-only operational APIs. These return a single paginated response shape for the web portal.
 app.get('/api/admin/payment-orders',requireAuth,requireRole('admin'),async(req,res)=>{const filter={};if(req.query.status)filter.status=String(req.query.status);if(req.query.from||req.query.to)filter.createdAt={...(req.query.from?{$gte:new Date(String(req.query.from))}:{}),...(req.query.to?{$lte:new Date(String(req.query.to))}:{})};await pageResult(PaymentOrder,filter,req,res);});
 app.get('/api/admin/transactions',requireAuth,requireRole('admin'),async(req,res)=>{const filter={};if(req.query.type)filter.type=String(req.query.type);if(req.query.status)filter.status=String(req.query.status);if(req.query.from||req.query.to)filter.createdAt={...(req.query.from?{$gte:new Date(String(req.query.from))}:{}),...(req.query.to?{$lte:new Date(String(req.query.to))}:{})};await pageResult(Transaction,filter,req,res);});
