@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Image, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const slides = [
   { title: 'Kết nối tri thức,\nchạm tới thành công', body: 'PSIFU là nơi sinh viên chia sẻ tài liệu, học hỏi và tìm mentor phù hợp.', tag: 'HOÀN TOÀN MIỄN PHÍ', icon: '✦' },

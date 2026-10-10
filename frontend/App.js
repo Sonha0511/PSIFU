@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, SafeAreaView, Alert, TextInput, Modal, Dimensions, FlatList, Image } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert, TextInput, Modal, Dimensions, FlatList, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { File } from 'expo-file-system';
 
 import { fptData } from './data/fptData';
 import { Database } from './data/database';
@@ -24,6 +26,7 @@ import Notifications from './components/Notifications';
 import QuizScreen from './components/QuizScreen';
 import ProfileHub from './components/ProfileHub';
 import MentorInbox from './components/MentorInbox';
+import MentorMessages from './components/MentorMessages';
 import BookingHub from './components/BookingHub';
 import ToastNotice from './components/ToastNotice';
 import PayOSPayment from './components/PayOSPayment';
@@ -247,7 +250,7 @@ export default function App() {
     if (result.canceled) return;
     try {
       const asset = result.assets[0]; const signature = await Database.getAvatarUploadSignature();
-      const form = new FormData(); form.append('file', { uri: asset.uri, type: asset.mimeType || 'image/jpeg', name: asset.fileName || 'avatar.jpg' }); form.append('api_key', signature.apiKey); form.append('timestamp', String(signature.timestamp)); form.append('folder', signature.folder); form.append('public_id', signature.publicId); form.append('overwrite', 'true'); form.append('signature', signature.signature);
+      const form = new FormData(); form.append('file', new File(asset.uri)); form.append('api_key', signature.apiKey); form.append('timestamp', String(signature.timestamp)); form.append('folder', signature.folder); form.append('public_id', signature.publicId); form.append('overwrite', 'true'); form.append('signature', signature.signature);
       const upload = await fetch(`https://api.cloudinary.com/v1_1/${signature.cloudName}/image/upload`, { method:'POST', body:form }); const uploaded = await upload.json(); if (!upload.ok || !uploaded.secure_url) throw new Error(upload.error?.message);
       setAvatarUrl(uploaded.secure_url);
     } catch (error) { Alert.alert('Không thể tải ảnh lên', error?.message || 'Vui lòng thử lại.'); }
@@ -389,7 +392,7 @@ export default function App() {
 
   return (
     <SafeAreaView style={[styles.container, themeContainer]}>
-      {!['home', 'community', 'chat', 'schedule', 'docs'].includes(currentTab) && <Header studentName={fullName} userXu={userXu} />}
+      {userRole !== 'mentor' && !['home', 'community', 'chat', 'schedule', 'docs'].includes(currentTab) && <Header studentName={fullName} userXu={userXu} />}
       
       {/* POPUP ONBOARDING LẦN ĐẦU ĐĂNG NHẬP */}
       <Modal visible={showOnboarding} animationType="slide" transparent={true}>
@@ -529,7 +532,8 @@ export default function App() {
 
         {/* 2. TÀI LIỆU */}
         {currentTab === 'community' && userRole === 'mentor' && <MentorCommunity mentor={currentUser} bookings={myBookings} onOpenChat={() => setCurrentTab('chat')} />}
-        {currentTab === 'chat' && <MentorInbox mentors={mentorProfiles} bookings={myBookings} menteeName={fullName} currentUserEmail={email} />}
+        {currentTab === 'chat' && userRole === 'mentor' && <MentorMessages mentor={currentUser} bookings={myBookings} onBack={() => setCurrentTab('community')} />}
+        {currentTab === 'chat' && userRole !== 'mentor' && <MentorInbox mentors={mentorProfiles} bookings={myBookings} menteeName={fullName} currentUserEmail={email} />}
         {currentTab === 'schedule' && <BookingHub bookings={myBookings} onBack={() => setCurrentTab('home')} onUpdate={handleUpdateBooking} menteeName={fullName} />}
         {currentTab === 'courses' && <MyCourses courses={courses} currentTerm={currentTerm} onBack={() => setCurrentTab('home')} onOpenCourse={() => setCurrentTab('docs')} />}
         {currentTab === 'docs' && userRole === 'mentor' && <MentorDocuments mentor={currentUser} />}
@@ -575,7 +579,7 @@ export default function App() {
         {/* 3. MENTOR */}
         {currentTab === 'mentor' && userRole !== 'mentor' && <FindMentor mentors={mentorProfiles} courses={courses} currentTerm={currentTerm} bookings={myBookings} onBook={triggerBooking} />}
 
-        {currentTab === 'profile' && userRole === 'mentor' && <MentorProfileHub user={{...currentUser, avatarUrl}} onUpdate={async next => { setCurrentUser(next); await Database.updateUserData(email, { fullName: next.fullName, mentorBio: next.mentorBio, mentorFee: next.mentorFee, mentorCourses: next.mentorCourses }); }} onLogout={handleLogout} />}
+        {currentTab === 'profile' && userRole === 'mentor' && <MentorProfileHub user={{...currentUser, avatarUrl}} onUpdate={async next => { const updated={...currentUser,...next}; setCurrentUser(updated); if(next.avatarUrl)setAvatarUrl(next.avatarUrl); return Database.updateUserData(email, { fullName: next.fullName, mentorBio: next.mentorBio, avatarUrl: next.avatarUrl, mentorCourses: next.mentorCourses }); }} onLogout={handleLogout} />}
         {currentTab === 'profile' && userRole !== 'mentor' && <ProfileHub user={{...currentUser, avatarUrl}} university={university} currentTerm={currentTerm} userXu={userXu} bookings={myBookings} mentors={mentorProfiles} documents={[...fptData, ...mentorDocuments]} unlockedDocs={unlockedDocs} onEdit={() => setShowEditProfileModal(true)} onTopUp={() => {setTopUpStandalone(true);setShowTopUpModal(true);}} onOpenDocument={(doc) => setSelectedDocumentDetail(doc)} onOpenSchedule={() => setCurrentTab('schedule')} onOpenChat={() => setCurrentTab('chat')} onChangePassword={() => setShowChangePassword(true)} onClaimReward={() => setNotice({ title: 'Phần thưởng', message: 'Hãy điểm danh trong Daily Rewards để nhận Xu.' })} onUpdateBooking={handleUpdateBooking} onLogout={handleLogout} />}
 
         {/* 4. PROFILE */}

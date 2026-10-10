@@ -1,5 +1,6 @@
 import React from 'react';
-import { Alert, Linking, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 const safeRoom = id => `psifu-${String(id || 'demo-session').replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase()}`;
