@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Database } from '../data/database';
+import { io } from 'socket.io-client';
+import { getAccessToken, SOCKET_URL } from '../data/api';
 import MentorInbox from './MentorInbox';
 
 const FALLBACK_COURSES = [
@@ -21,7 +23,7 @@ export default function Community({ university, currentTerm, fullName, fptK, cur
   const semester = String(currentTerm || 'Kỳ 1').replace(/[^0-9]/g, '') || '1';
   const courseChannels = useMemo(() => {
     const termCourses = courses.filter((course) => !course.term || course.term === currentTerm);
-    return (termCourses.length ? termCourses : FALLBACK_COURSES).map((course) => ({
+    return termCourses.map((course) => ({
       code: String(course.code).toLowerCase(),
       name: course.name,
     }));
@@ -43,10 +45,10 @@ export default function Community({ university, currentTerm, fullName, fptK, cur
 
   const loadMessages = async (quiet = false) => {
     try {
-      const result = await Database.getChatMessages(roomId, roomSeed(selectedChannel, currentTerm));
+      const result = await Database.getChatMessages(roomId);
       setMessages(result);
     } catch (error) {
-      if (!quiet) setMessages(roomSeed(selectedChannel, currentTerm));
+      if (!quiet) setMessages([]);
     } finally {
       if (!quiet) setLoading(false);
     }
@@ -55,8 +57,9 @@ export default function Community({ university, currentTerm, fullName, fptK, cur
   useEffect(() => {
     setLoading(true);
     loadMessages();
-    const timer = setInterval(() => loadMessages(true), 3500);
-    return () => clearInterval(timer);
+    let socket; let alive=true;
+    (async()=>{const token=await getAccessToken();if(!alive)return;socket=io(SOCKET_URL,{transports:['websocket'],auth:{token}});socket.on('connect',()=>socket.emit('chat:join',roomId));socket.on('chat:message',message=>{if(message.roomId===roomId)setMessages(rows=>rows.some(row=>(row.id||row._id)===(message.id||message._id))?rows:[...rows,message])})})().catch(()=>{});
+    return () => {alive=false;socket?.disconnect()};
   }, [roomId]);
 
   useEffect(() => {

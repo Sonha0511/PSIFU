@@ -23,6 +23,7 @@ export const Database = {
   getBookings: () => request('/bookings'),
   saveBooking: async booking => { try { return await request('/bookings', { method: 'POST', body: JSON.stringify(booking) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
   updateBookingStatus: async (id, status) => { try { await request(`/bookings/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }); return true; } catch { return false; } },
+  rateBooking: (id, rating) => request(`/bookings/${id}/rating`, { method: 'POST', body: JSON.stringify(rating) }),
   getMentorAvailability: (email,date) => request(`/mentors/${encodeURIComponent(email)}/availability?date=${encodeURIComponent(date)}`),
   claimDailyCheckIn: () => request('/wallet/daily-check-in',{method:'POST'}),
   getChatMessages: async (roomId, seed = []) => { const messages = await request(`/chats/${roomId}`); return messages.length ? messages : seed; },
