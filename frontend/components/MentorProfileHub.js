@@ -1,46 +1,529 @@
-import React, { useEffect, useState } from 'react';
-import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
-import { File } from 'expo-file-system';
-import { Database } from '../data/database';
-import MentorWallet from './MentorWallet';
+import React, { useEffect, useState } from "react";
+import {
+  Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import { File } from "expo-file-system";
+import { Database } from "../data/database";
+import MentorWallet from "./MentorWallet";
 
-const COURSE_OPTIONS = ['PRF192', 'PRO192', 'CSD201', 'DBI202'];
-const initials = name => String(name || 'Mentor').split(' ').filter(Boolean).map(word => word[0]).slice(-2).join('').toUpperCase();
+const COURSE_OPTIONS = ["PRF192", "PRO192", "CSD201", "DBI202"];
+const initials = (name) =>
+  String(name || "Mentor")
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word[0])
+    .slice(-2)
+    .join("")
+    .toUpperCase();
 
 export default function MentorProfileHub({ user, onUpdate, onLogout }) {
-  const [page, setPage] = useState('profile');
-  const [name, setName] = useState(user?.fullName || '');
-  const [bio, setBio] = useState(user?.mentorBio || '');
-  const [courses, setCourses] = useState(user?.mentorCourses?.length ? user.mentorCourses : []);
-  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || '');
+  const [page, setPage] = useState("profile");
+  const [name, setName] = useState(user?.fullName || "");
+  const [bio, setBio] = useState(user?.mentorBio || "");
+  const [courses, setCourses] = useState(
+    user?.mentorCourses?.length ? user.mentorCourses : [],
+  );
+  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || "");
   const [saving, setSaving] = useState(false);
-  useEffect(() => { setName(user?.fullName || ''); setBio(user?.mentorBio || ''); setCourses(user?.mentorCourses || []); setAvatarUrl(user?.avatarUrl || ''); }, [user?.email]);
-  if (page === 'wallet') return <MentorWallet user={{...user, fullName:name}} onBack={() => setPage('profile')} onUserUpdate={onUpdate}/>;
+  useEffect(() => {
+    setName(user?.fullName || "");
+    setBio(user?.mentorBio || "");
+    setCourses(user?.mentorCourses || []);
+    setAvatarUrl(user?.avatarUrl || "");
+  }, [user?.email]);
+  if (page === "wallet")
+    return (
+      <MentorWallet
+        user={{ ...user, fullName: name }}
+        onBack={() => setPage("profile")}
+        onUserUpdate={onUpdate}
+      />
+    );
   const chooseAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) return Alert.alert('Cần quyền ảnh', 'Hãy cho phép PSIFU truy cập thư viện để đổi ảnh đại diện.');
-    const result = await ImagePicker.launchImageLibraryAsync({mediaTypes:['images'],allowsEditing:true,aspect:[1,1],quality:0.7});
+    if (!permission.granted)
+      return Alert.alert(
+        "Cần quyền ảnh",
+        "Hãy cho phép PSIFU truy cập thư viện để đổi ảnh đại diện.",
+      );
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
     if (result.canceled) return;
     try {
-      const asset = result.assets[0]; const signature = await Database.getAvatarUploadSignature(); const form = new FormData();
-      form.append('file', new File(asset.uri)); form.append('api_key', String(signature.apiKey)); form.append('timestamp', String(signature.timestamp)); form.append('folder', signature.folder); form.append('public_id', signature.publicId); form.append('overwrite', 'true'); form.append('signature', signature.signature);
-      const response = await fetch(`https://api.cloudinary.com/v1_1/${signature.cloudName}/image/upload`, {method:'POST',body:form}); const data = await response.json(); if (!response.ok || !data.secure_url) throw new Error(data.error?.message || 'Cloudinary không trả về ảnh.'); setAvatarUrl(data.secure_url);
-    } catch (error) { Alert.alert('Không thể tải ảnh lên', error?.data?.msg || error.message || 'Vui lòng thử lại.'); }
+      const asset = result.assets[0];
+      const signature = await Database.getAvatarUploadSignature();
+      const form = new FormData();
+      form.append("file", new File(asset.uri));
+      form.append("api_key", String(signature.apiKey));
+      form.append("timestamp", String(signature.timestamp));
+      form.append("folder", signature.folder);
+      form.append("public_id", signature.publicId);
+      form.append("overwrite", "true");
+      form.append("signature", signature.signature);
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${signature.cloudName}/image/upload`,
+        { method: "POST", body: form },
+      );
+      const data = await response.json();
+      if (!response.ok || !data.secure_url)
+        throw new Error(data.error?.message || "Cloudinary không trả về ảnh.");
+      setAvatarUrl(data.secure_url);
+    } catch (error) {
+      Alert.alert(
+        "Không thể tải ảnh lên",
+        error?.data?.msg || error.message || "Vui lòng thử lại.",
+      );
+    }
   };
   const save = async () => {
-    if (name.trim().length < 2) return Alert.alert('Tên chưa hợp lệ', 'Họ và tên cần có ít nhất 2 ký tự.');
-    setSaving(true); const ok = await onUpdate?.({...user, fullName:name.trim(), mentorBio:bio.trim(), mentorCourses:courses, avatarUrl}); setSaving(false);
-    if (ok === false) return Alert.alert('Không thể lưu', 'Vui lòng kiểm tra mạng rồi thử lại.');
-    Alert.alert('Đã lưu hồ sơ', 'Thông tin mentor đã được cập nhật.'); setPage('profile');
+    if (name.trim().length < 2)
+      return Alert.alert(
+        "Tên chưa hợp lệ",
+        "Họ và tên cần có ít nhất 2 ký tự.",
+      );
+    setSaving(true);
+    const ok = await onUpdate?.({
+      ...user,
+      fullName: name.trim(),
+      mentorBio: bio.trim(),
+      mentorCourses: courses,
+      avatarUrl,
+    });
+    setSaving(false);
+    if (ok === false)
+      return Alert.alert(
+        "Không thể lưu",
+        "Vui lòng kiểm tra mạng rồi thử lại.",
+      );
+    Alert.alert("Đã lưu hồ sơ", "Thông tin mentor đã được cập nhật.");
+    setPage("profile");
   };
-  if (page === 'edit') return <ScrollView style={s.screen} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled"><Top title="Chỉnh sửa hồ sơ" back={() => setPage('profile')}/><TouchableOpacity style={s.avatarEdit} onPress={chooseAvatar}>{avatarUrl ? <Image source={{uri:avatarUrl}} style={s.avatarLarge}/> : <Avatar name={name} large/>}<View style={s.camera}><Ionicons name="camera" color="#fff" size={15}/></View></TouchableOpacity><TouchableOpacity onPress={chooseAvatar}><Text style={s.changePhoto}>Đổi ảnh đại diện</Text></TouchableOpacity><Label text="Thông tin cá nhân"/><Label text="Họ và tên *" small/><TextInput style={s.input} value={name} onChangeText={setName} placeholder="Họ và tên" placeholderTextColor="#8A9BB5"/><Label text="Email học vụ FPT EduID" small/><View style={s.readonly}><Text style={s.readonlyText}>{user?.email || 'Chưa có email'}</Text><Text style={s.readonlyNote}>Không thể thay đổi</Text></View><Label text="Giới thiệu bản thân (Bio)" small/><TextInput style={[s.input,s.bio]} value={bio} onChangeText={setBio} multiline maxLength={300} placeholder="Chia sẻ kinh nghiệm, môn học bạn hỗ trợ..." placeholderTextColor="#8A9BB5"/><Text style={s.counter}>{bio.length}/300 ký tự</Text><Label text="Môn học bạn hỗ trợ"/><View style={s.courseList}>{COURSE_OPTIONS.map(course => <TouchableOpacity key={course} style={[s.course, courses.includes(course) && s.courseOn]} onPress={() => setCourses(items => items.includes(course) ? items.filter(item => item !== course) : [...items,course])}><Ionicons name={courses.includes(course) ? 'checkbox' : 'square-outline'} color="#155EEF" size={21}/><View><Text style={s.courseCode}>{course}</Text><Text style={s.copy}>Môn học chuyên môn</Text></View></TouchableOpacity>)}</View><View style={s.adminFee}><Ionicons name="shield-checkmark-outline" size={18} color="#155EEF"/><View style={{flex:1}}><Text style={s.feeTitle}>Mức phí do quản trị viên quản lý</Text><Text style={s.copy}>Để thay đổi mức phí cố vấn, vui lòng liên hệ quản trị viên PSIFU.</Text></View></View><TouchableOpacity style={[s.primary,saving && s.disabled]} disabled={saving} onPress={save}><Text style={s.primaryText}>{saving ? 'ĐANG LƯU...' : 'LƯU THAY ĐỔI'}</Text></TouchableOpacity></ScrollView>;
-  return <ScrollView style={s.screen} contentContainerStyle={s.content}><Top title="Hồ sơ Mentor"/><View style={s.profileHero}>{avatarUrl ? <Image source={{uri:avatarUrl}} style={s.avatarLarge}/> : <Avatar name={name} large/>}<Text style={s.name}>{name || 'Mentor PSIFU'}</Text><Text style={s.verified}>✓ MENTOR ĐÃ XÁC THỰC</Text><Text style={s.copy}>{user?.university || 'Đại học FPT'} · {user?.fptK || 'Mentor PSIFU'}</Text><TouchableOpacity style={s.editButton} onPress={() => setPage('edit')}><Ionicons name="pencil-outline" size={15} color="#155EEF"/><Text style={s.editButtonText}>Chỉnh sửa hồ sơ</Text></TouchableOpacity></View><Section title="Giới thiệu"><Text style={s.profileBio}>{bio || 'Bạn chưa cập nhật phần giới thiệu.'}</Text></Section><Section title="Môn học hỗ trợ">{courses.length ? courses.map(course => <View key={course} style={s.course}><Ionicons name="checkmark-circle" color="#155EEF" size={20}/><Text style={s.courseCode}>{course}</Text></View>) : <Text style={s.copy}>Chưa chọn môn học hỗ trợ.</Text>}</Section><Section title="Mức phí cố vấn"><View style={s.adminFee}><Ionicons name="lock-closed-outline" size={18} color="#155EEF"/><View style={{flex:1}}><Text style={s.feeTitle}>{Number(user?.mentorFee || 0) ? `${user.mentorFee} Xu / 60 phút` : 'Quản trị viên đang thiết lập'}</Text><Text style={s.copy}>Mức phí được PSIFU quản lý để bảo đảm công bằng và an toàn giao dịch.</Text></View></View></Section><Section title="Tài chính"><Row icon="wallet-outline" title="Ví & yêu cầu rút Xu" sub="Quản lý nhiều tài khoản ngân hàng" onPress={() => setPage('wallet')}/></Section><Section title="Tài khoản"><Row icon="notifications-outline" title="Thông báo" sub="Mở cài đặt thông báo trong hồ sơ" onPress={() => Alert.alert('Thông báo', 'Cài đặt thông báo đang dùng theo tuỳ chọn của tài khoản.')}/><Row icon="log-out-outline" title="Đăng xuất" sub="Kết thúc phiên trên thiết bị này" danger onPress={onLogout}/></Section></ScrollView>;
+  if (page === "edit")
+    return (
+      <ScrollView
+        style={s.screen}
+        contentContainerStyle={s.content}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Top title="Chỉnh sửa hồ sơ" back={() => setPage("profile")} />
+        <TouchableOpacity style={s.avatarEdit} onPress={chooseAvatar}>
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={s.avatarLarge} />
+          ) : (
+            <Avatar name={name} large />
+          )}
+          <View style={s.camera}>
+            <Ionicons name="camera" color="#fff" size={15} />
+          </View>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={chooseAvatar}>
+          <Text style={s.changePhoto}>Đổi ảnh đại diện</Text>
+        </TouchableOpacity>
+        <Label text="Thông tin cá nhân" />
+        <Label text="Họ và tên *" small />
+        <TextInput
+          style={s.input}
+          value={name}
+          onChangeText={setName}
+          placeholder="Họ và tên"
+          placeholderTextColor="#8A9BB5"
+        />
+        <Label text="Email học vụ FPT EduID" small />
+        <View style={s.readonly}>
+          <Text style={s.readonlyText}>{user?.email || "Chưa có email"}</Text>
+          <Text style={s.readonlyNote}>Không thể thay đổi</Text>
+        </View>
+        <Label text="Giới thiệu bản thân (Bio)" small />
+        <TextInput
+          style={[s.input, s.bio]}
+          value={bio}
+          onChangeText={setBio}
+          multiline
+          maxLength={300}
+          placeholder="Chia sẻ kinh nghiệm, môn học bạn hỗ trợ..."
+          placeholderTextColor="#8A9BB5"
+        />
+        <Text style={s.counter}>{bio.length}/300 ký tự</Text>
+        <Label text="Môn học bạn hỗ trợ" />
+        <View style={s.courseList}>
+          {COURSE_OPTIONS.map((course) => (
+            <TouchableOpacity
+              key={course}
+              style={[s.course, courses.includes(course) && s.courseOn]}
+              onPress={() =>
+                setCourses((items) =>
+                  items.includes(course)
+                    ? items.filter((item) => item !== course)
+                    : [...items, course],
+                )
+              }
+            >
+              <Ionicons
+                name={courses.includes(course) ? "checkbox" : "square-outline"}
+                color="#155EEF"
+                size={21}
+              />
+              <View>
+                <Text style={s.courseCode}>{course}</Text>
+                <Text style={s.copy}>Môn học chuyên môn</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <View style={s.adminFee}>
+          <Ionicons name="shield-checkmark-outline" size={18} color="#155EEF" />
+          <View style={{ flex: 1 }}>
+            <Text style={s.feeTitle}>Mức phí do quản trị viên quản lý</Text>
+            <Text style={s.copy}>
+              Để thay đổi mức phí cố vấn, vui lòng liên hệ quản trị viên PSIFU.
+            </Text>
+          </View>
+        </View>
+        <TouchableOpacity
+          style={[s.primary, saving && s.disabled]}
+          disabled={saving}
+          onPress={save}
+        >
+          <Text style={s.primaryText}>
+            {saving ? "ĐANG LƯU..." : "LƯU THAY ĐỔI"}
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
+    );
+  return (
+    <ScrollView style={s.screen} contentContainerStyle={s.content}>
+      <Top title="Hồ sơ Mentor" />
+      <View style={s.profileHero}>
+        {avatarUrl ? (
+          <Image source={{ uri: avatarUrl }} style={s.avatarLarge} />
+        ) : (
+          <Avatar name={name} large />
+        )}
+        <Text style={s.name}>{name || "Mentor PSIFU"}</Text>
+        <Text style={s.verified}>✓ MENTOR ĐÃ XÁC THỰC</Text>
+        <Text style={s.copy}>
+          {user?.university || "Đại học FPT"} · {user?.fptK || "Mentor PSIFU"}
+        </Text>
+        <TouchableOpacity style={s.editButton} onPress={() => setPage("edit")}>
+          <Ionicons name="pencil-outline" size={15} color="#155EEF" />
+          <Text style={s.editButtonText}>Chỉnh sửa hồ sơ</Text>
+        </TouchableOpacity>
+      </View>
+      <Section title="Giới thiệu">
+        <Text style={s.profileBio}>
+          {bio || "Bạn chưa cập nhật phần giới thiệu."}
+        </Text>
+      </Section>
+      <Section title="Môn học hỗ trợ">
+        {courses.length ? (
+          courses.map((course) => (
+            <View key={course} style={s.course}>
+              <Ionicons name="checkmark-circle" color="#155EEF" size={20} />
+              <Text style={s.courseCode}>{course}</Text>
+            </View>
+          ))
+        ) : (
+          <Text style={s.copy}>Chưa chọn môn học hỗ trợ.</Text>
+        )}
+      </Section>
+      <Section title="Mức phí cố vấn">
+        <View style={s.adminFee}>
+          <Ionicons name="lock-closed-outline" size={18} color="#155EEF" />
+          <View style={{ flex: 1 }}>
+            <Text style={s.feeTitle}>
+              {Number(user?.mentorFee || 0)
+                ? `${user.mentorFee} Xu / 60 phút`
+                : "Quản trị viên đang thiết lập"}
+            </Text>
+            <Text style={s.copy}>
+              Mức phí được PSIFU quản lý để bảo đảm công bằng và an toàn giao
+              dịch.
+            </Text>
+          </View>
+        </View>
+      </Section>
+      <Section title="Tài chính">
+        <Row
+          icon="wallet-outline"
+          title="Ví & yêu cầu rút Xu"
+          sub="Quản lý nhiều tài khoản ngân hàng"
+          onPress={() => setPage("wallet")}
+        />
+      </Section>
+      <Section title="Tài khoản">
+        <Row
+          icon="notifications-outline"
+          title="Thông báo"
+          sub="Mở cài đặt thông báo trong hồ sơ"
+          onPress={() =>
+            Alert.alert(
+              "Thông báo",
+              "Cài đặt thông báo đang dùng theo tuỳ chọn của tài khoản.",
+            )
+          }
+        />
+        <Row
+          icon="log-out-outline"
+          title="Đăng xuất"
+          sub="Kết thúc phiên trên thiết bị này"
+          danger
+          onPress={onLogout}
+        />
+      </Section>
+    </ScrollView>
+  );
 }
-function Top({title,back}) { return <View style={s.top}>{back ? <TouchableOpacity onPress={back}><Ionicons name="arrow-back" size={22} color="#102A56"/></TouchableOpacity> : <View style={{width:22}}/>}<Text style={s.topTitle}>{title}</Text><View style={{width:22}}/></View>; }
-function Avatar({name,large}) { return <View style={large ? s.avatarLarge : s.avatar}><Text style={large ? s.avatarInitialLarge : s.avatarInitial}>{initials(name)}</Text></View>; }
-function Label({text,small}) { return <Text style={small ? s.labelSmall : s.label}>{text}</Text>; }
-function Section({title,children}) { return <View style={s.section}><Text style={s.sectionTitle}>{title}</Text><View style={s.sectionBody}>{children}</View></View>; }
-function Row({icon,title,sub,onPress,danger}) { return <TouchableOpacity style={s.row} onPress={onPress}><View style={[s.rowIcon,danger && s.rowIconDanger]}><Ionicons name={icon} size={18} color={danger ? '#D92D20' : '#155EEF'}/></View><View style={{flex:1}}><Text style={[s.rowTitle,danger && s.dangerText]}>{title}</Text><Text style={s.copy}>{sub}</Text></View><Ionicons name="chevron-forward" size={17} color="#71829D"/></TouchableOpacity>; }
-const s=StyleSheet.create({screen:{flex:1,backgroundColor:'#F8FAFF'},content:{padding:16,paddingBottom:34},top:{height:46,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},topTitle:{color:'#102A56',fontSize:18,fontWeight:'900'},profileHero:{alignItems:'center',padding:18,backgroundColor:'#fff',borderRadius:16,borderWidth:1,borderColor:'#E0E8F5'},avatar:{width:38,height:38,borderRadius:19,backgroundColor:'#155EEF',alignItems:'center',justifyContent:'center'},avatarLarge:{width:84,height:84,borderRadius:42,backgroundColor:'#155EEF',alignItems:'center',justifyContent:'center'},avatarInitial:{color:'#fff',fontSize:13,fontWeight:'900'},avatarInitialLarge:{color:'#fff',fontSize:27,fontWeight:'900'},name:{color:'#102A56',fontSize:20,fontWeight:'900',marginTop:10},verified:{color:'#155EEF',fontSize:9,fontWeight:'900',marginTop:4},copy:{color:'#64748B',fontSize:10,lineHeight:15,marginTop:3},editButton:{marginTop:13,backgroundColor:'#EAF1FF',paddingHorizontal:13,paddingVertical:9,borderRadius:9,flexDirection:'row',gap:6,alignItems:'center'},editButtonText:{color:'#155EEF',fontSize:10,fontWeight:'900'},section:{marginTop:17},sectionTitle:{fontSize:14,color:'#102A56',fontWeight:'900',marginBottom:8},sectionBody:{backgroundColor:'#fff',borderWidth:1,borderColor:'#E0E8F5',borderRadius:14,padding:12},profileBio:{fontSize:12,color:'#364A69',lineHeight:19},course:{minHeight:48,flexDirection:'row',alignItems:'center',gap:10,borderBottomWidth:1,borderBottomColor:'#EDF1F7',paddingVertical:9},courseOn:{backgroundColor:'#EEF3FF'},courseCode:{color:'#102A56',fontSize:12,fontWeight:'900'},adminFee:{padding:12,backgroundColor:'#EEF3FF',borderRadius:11,flexDirection:'row',gap:9,alignItems:'flex-start'},feeTitle:{color:'#102A56',fontSize:11,fontWeight:'900'},row:{minHeight:60,flexDirection:'row',alignItems:'center',gap:10,borderBottomWidth:1,borderBottomColor:'#EDF1F7'},rowIcon:{width:35,height:35,borderRadius:10,backgroundColor:'#EAF1FF',alignItems:'center',justifyContent:'center'},rowIconDanger:{backgroundColor:'#FEE4E2'},rowTitle:{color:'#102A56',fontSize:11,fontWeight:'900'},dangerText:{color:'#D92D20'},avatarEdit:{alignSelf:'center',marginTop:14,position:'relative'},camera:{position:'absolute',right:-2,bottom:-2,width:29,height:29,borderRadius:15,backgroundColor:'#155EEF',borderWidth:3,borderColor:'#F8FAFF',alignItems:'center',justifyContent:'center'},changePhoto:{color:'#155EEF',fontSize:11,fontWeight:'900',textAlign:'center',marginTop:9},label:{fontSize:14,color:'#102A56',fontWeight:'900',marginTop:19,marginBottom:5},labelSmall:{fontSize:10,color:'#102A56',fontWeight:'800',marginTop:12,marginBottom:5},input:{height:45,backgroundColor:'#fff',borderWidth:1,borderColor:'#E0E8F5',borderRadius:10,paddingHorizontal:12,fontSize:12,color:'#102A56'},readonly:{height:45,backgroundColor:'#EEF3FF',borderRadius:10,paddingHorizontal:12,justifyContent:'center'},readonlyText:{color:'#40536F',fontSize:11},readonlyNote:{position:'absolute',right:12,color:'#71829D',fontSize:9},bio:{height:106,textAlignVertical:'top',paddingTop:11},counter:{alignSelf:'flex-end',color:'#71829D',fontSize:8,marginTop:4},courseList:{backgroundColor:'#fff',borderRadius:12,borderWidth:1,borderColor:'#E0E8F5',paddingHorizontal:12},primary:{height:48,backgroundColor:'#155EEF',borderRadius:12,alignItems:'center',justifyContent:'center',marginTop:18},primaryText:{color:'#fff',fontWeight:'900',fontSize:11},disabled:{opacity:.55}});
+function Top({ title, back }) {
+  return (
+    <View style={s.top}>
+      {back ? (
+        <TouchableOpacity onPress={back}>
+          <Ionicons name="arrow-back" size={22} color="#102A56" />
+        </TouchableOpacity>
+      ) : (
+        <View style={{ width: 22 }} />
+      )}
+      <Text style={s.topTitle}>{title}</Text>
+      <View style={{ width: 22 }} />
+    </View>
+  );
+}
+function Avatar({ name, large }) {
+  return (
+    <View style={large ? s.avatarLarge : s.avatar}>
+      <Text style={large ? s.avatarInitialLarge : s.avatarInitial}>
+        {initials(name)}
+      </Text>
+    </View>
+  );
+}
+function Label({ text, small }) {
+  return <Text style={small ? s.labelSmall : s.label}>{text}</Text>;
+}
+function Section({ title, children }) {
+  return (
+    <View style={s.section}>
+      <Text style={s.sectionTitle}>{title}</Text>
+      <View style={s.sectionBody}>{children}</View>
+    </View>
+  );
+}
+function Row({ icon, title, sub, onPress, danger }) {
+  return (
+    <TouchableOpacity style={s.row} onPress={onPress}>
+      <View style={[s.rowIcon, danger && s.rowIconDanger]}>
+        <Ionicons
+          name={icon}
+          size={18}
+          color={danger ? "#D92D20" : "#155EEF"}
+        />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[s.rowTitle, danger && s.dangerText]}>{title}</Text>
+        <Text style={s.copy}>{sub}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={17} color="#71829D" />
+    </TouchableOpacity>
+  );
+}
+const s = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: "#F8FAFF" },
+  content: { padding: 16, paddingBottom: 40 },
+  top: {
+    height: 52,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  topTitle: { color: "#102A56", fontSize: 20, fontWeight: "900" },
+  profileHero: {
+    alignItems: "center",
+    padding: 18,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#E0E8F5",
+  },
+  avatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#155EEF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarLarge: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: "#155EEF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarInitial: { color: "#fff", fontSize: 13, fontWeight: "900" },
+  avatarInitialLarge: { color: "#fff", fontSize: 27, fontWeight: "900" },
+  name: { color: "#102A56", fontSize: 20, fontWeight: "900", marginTop: 10 },
+  verified: { color: "#155EEF", fontSize: 11, fontWeight: "900", marginTop: 4 },
+  copy: { color: "#64748B", fontSize: 12, lineHeight: 18, marginTop: 3 },
+  editButton: {
+    marginTop: 13,
+    backgroundColor: "#EAF1FF",
+    paddingHorizontal: 13,
+    paddingVertical: 9,
+    borderRadius: 9,
+    flexDirection: "row",
+    gap: 6,
+    alignItems: "center",
+  },
+  editButtonText: { color: "#155EEF", fontSize: 12, fontWeight: "900" },
+  section: { marginTop: 17 },
+  sectionTitle: {
+    fontSize: 16,
+    color: "#102A56",
+    fontWeight: "900",
+    marginBottom: 8,
+  },
+  sectionBody: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#E0E8F5",
+    borderRadius: 14,
+    padding: 12,
+  },
+  profileBio: { fontSize: 12, color: "#364A69", lineHeight: 19 },
+  course: {
+    minHeight: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#EDF1F7",
+    paddingVertical: 9,
+  },
+  courseOn: { backgroundColor: "#EEF3FF" },
+  courseCode: { color: "#102A56", fontSize: 12, fontWeight: "900" },
+  adminFee: {
+    padding: 12,
+    backgroundColor: "#EEF3FF",
+    borderRadius: 11,
+    flexDirection: "row",
+    gap: 9,
+    alignItems: "flex-start",
+  },
+  feeTitle: { color: "#102A56", fontSize: 13, fontWeight: "900" },
+  row: {
+    minHeight: 60,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#EDF1F7",
+  },
+  rowIcon: {
+    width: 35,
+    height: 35,
+    borderRadius: 10,
+    backgroundColor: "#EAF1FF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  rowIconDanger: { backgroundColor: "#FEE4E2" },
+  rowTitle: { color: "#102A56", fontSize: 13, fontWeight: "900" },
+  dangerText: { color: "#D92D20" },
+  avatarEdit: { alignSelf: "center", marginTop: 14, position: "relative" },
+  camera: {
+    position: "absolute",
+    right: -2,
+    bottom: -2,
+    width: 29,
+    height: 29,
+    borderRadius: 15,
+    backgroundColor: "#155EEF",
+    borderWidth: 3,
+    borderColor: "#F8FAFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  changePhoto: {
+    color: "#155EEF",
+    fontSize: 12,
+    fontWeight: "900",
+    textAlign: "center",
+    marginTop: 9,
+  },
+  label: {
+    fontSize: 14,
+    color: "#102A56",
+    fontWeight: "900",
+    marginTop: 19,
+    marginBottom: 5,
+  },
+  labelSmall: {
+    fontSize: 12,
+    color: "#102A56",
+    fontWeight: "800",
+    marginTop: 12,
+    marginBottom: 5,
+  },
+  input: {
+    height: 48,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#E0E8F5",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    color: "#102A56",
+  },
+  readonly: {
+    height: 48,
+    backgroundColor: "#EEF3FF",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    justifyContent: "center",
+  },
+  readonlyText: { color: "#40536F", fontSize: 14 },
+  readonlyNote: {
+    position: "absolute",
+    right: 12,
+    color: "#71829D",
+    fontSize: 11,
+  },
+  bio: { height: 106, textAlignVertical: "top", paddingTop: 11 },
+  counter: {
+    alignSelf: "flex-end",
+    color: "#71829D",
+    fontSize: 11,
+    marginTop: 4,
+  },
+  courseList: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E0E8F5",
+    paddingHorizontal: 12,
+  },
+  primary: {
+    minHeight: 50,
+    backgroundColor: "#155EEF",
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 18,
+  },
+  primaryText: { color: "#fff", fontWeight: "900", fontSize: 12 },
+  disabled: { opacity: 0.55 },
+});
