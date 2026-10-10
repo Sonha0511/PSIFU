@@ -17,6 +17,8 @@ export const Database = {
   completePasswordReset: async (email, code, password) => { try { return await request('/auth/password-reset/complete', { method: 'POST', body: JSON.stringify({ email, code, password }) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
   updateUserData: async (email, fields) => { try { await request(`/users/${encodeURIComponent(email)}`, { method: 'PATCH', body: JSON.stringify(fields) }); return true; } catch { return false; } },
   updateUserRole: async (email, role) => { try { await request(`/users/${encodeURIComponent(email)}/role`, { method: 'PATCH', body: JSON.stringify({ role }) }); return true; } catch { return false; } },
+  getAdminPayouts: status => request(`/admin/payouts${status ? `?status=${encodeURIComponent(status)}` : ''}`),
+  updateAdminPayout: (payoutCode, payload) => request(`/admin/payouts/${encodeURIComponent(payoutCode)}`, { method:'PATCH', body:JSON.stringify(payload) }),
   getQuestions: () => request('/questions'), saveQuestion: question => request('/questions', { method: 'POST', body: JSON.stringify(question) }),
   getBookings: () => request('/bookings'),
   saveBooking: async booking => { try { return await request('/bookings', { method: 'POST', body: JSON.stringify(booking) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
