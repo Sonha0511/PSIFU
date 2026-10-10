@@ -38,6 +38,8 @@ export const Database = {
   unlockMentorDocument: (id,email) => request(`/mentor-documents/${encodeURIComponent(id)}/unlock`,{method:'POST',body:JSON.stringify({email})}),
   getMentorDocumentAccess: (id,email) => request(`/mentor-documents/${encodeURIComponent(id)}/access?email=${encodeURIComponent(email)}`),
   saveMentorDocument: document => request('/mentor-documents', { method: 'POST', body: JSON.stringify(document) }),
+  updateMentorDocument: (id, document) => request(`/mentor-documents/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(document) }),
+  deleteMentorDocument: id => request(`/mentor-documents/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   getCloudinaryUploadSignature: (email, fileName) => request('/uploads/cloudinary-signature', { method:'POST', body:JSON.stringify({email,fileName}) }),
   getAvatarUploadSignature: () => request('/uploads/avatar-signature', { method:'POST' }),
   createPayosTopup: (email, coins) => request('/payments/payos/topups', { method: 'POST', body: JSON.stringify({ email, coins }) }),

@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Database } from '../data/database';
+import { io } from 'socket.io-client';
+import { getAccessToken, SOCKET_URL } from '../data/api';
 
 const ROOM = 'homepage-live';
 const asTime = value => { try { return new Date(value).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'}); } catch { return ''; } };
@@ -9,7 +11,7 @@ const asTime = value => { try { return new Date(value).toLocaleTimeString('vi-VN
 export default function HomeLiveChat({ name, email, role = 'MENTEE' }) {
   const [messages, setMessages] = useState([]); const [draft, setDraft] = useState(''); const [open, setOpen] = useState(false); const [sending, setSending] = useState(false);
   const load = async () => { try { const rows = await Database.getChatMessages(ROOM); setMessages(rows); } catch {} };
-  useEffect(() => { load(); const timer = setInterval(load, 3000); return () => clearInterval(timer); }, []);
+  useEffect(() => { let socket; let alive=true; load(); (async()=>{try{const token=await getAccessToken();if(!alive)return;socket=io(SOCKET_URL,{transports:['websocket'],auth:{token}});socket.on('connect',()=>socket.emit('chat:join',ROOM));socket.on('chat:message',message=>{if(message.roomId===ROOM)setMessages(rows=>rows.some(row=>(row.id||row._id)===(message.id||message._id)||(row.authorEmail===message.authorEmail&&row.text===message.text))?rows:[...rows,message]);});}catch{}})(); return () => {alive=false;socket?.disconnect();}; }, []);
   const send = async () => { const text = draft.trim(); if (!text || sending) return; setSending(true); const optimistic={user:name || 'Bạn',authorEmail:email,role,text,createdAt:new Date().toISOString()}; setDraft(''); setMessages(rows => [...rows,optimistic]); try { const saved=await Database.saveChatMessage(ROOM,optimistic); setMessages(rows => rows.map(row => row===optimistic ? saved : row)); } catch { setMessages(rows => rows.filter(row => row!==optimistic)); } finally { setSending(false); } };
   const feed = <>{messages.length ? messages.slice(open ? -50 : -4).map((item,index) => <View key={item.id || item._id || `${item.createdAt}-${index}`} style={s.message}><View style={s.messageHead}><Text style={s.user}>{item.user || 'Thành viên'}</Text><Text style={[s.badge,item.role === 'MENTOR' && s.mentorBadge]}>{item.role === 'MENTOR' ? 'MENTOR' : 'MENTEE'}</Text><Text style={s.time}>{asTime(item.createdAt)}</Text></View><Text style={s.messageText}>{item.text}</Text></View>) : <Text style={s.empty}>Chưa có tin nhắn. Hãy mở đầu cuộc trò chuyện.</Text>}</>;
   const composer = <View style={s.composer}><TextInput value={draft} onChangeText={setDraft} onSubmitEditing={send} placeholder="Nhắn tin với mọi người…" placeholderTextColor="#93A1BE" style={s.input} maxLength={1000}/><TouchableOpacity disabled={!draft.trim() || sending} onPress={send} style={[s.send,(!draft.trim() || sending) && s.sendDisabled]}><Ionicons name="send" size={16} color="#fff"/></TouchableOpacity></View>;
