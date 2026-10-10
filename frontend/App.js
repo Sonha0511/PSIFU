@@ -293,7 +293,7 @@ export default function App() {
 
   const triggerBooking = async (mentor, course = '') => {
     const today = new Date();
-    const defaultDate = `${today.getDate()}/${today.getMonth() + 1}/${today.getFullYear()}`;
+    const defaultDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
     const availability = await Database.getMentorAvailability(mentor.id, defaultDate);
     setSelectedMentor(mentor.name);
     setSelectedMentorId(mentor.id);
@@ -388,7 +388,7 @@ export default function App() {
   if (selectedDocumentDetail) return <SafeAreaView style={[styles.container, styles.lightContainer]}><DocumentDetail document={selectedDocumentDetail} unlocked={!!unlockedDocs[selectedDocumentDetail.id] || Number(selectedDocumentDetail.fee || 0) === 0} rating={documentRatings[selectedDocumentDetail.id] || 0} onBack={() => setSelectedDocumentDetail(null)} onUnlock={() => handleUnlockDoc(selectedDocumentDetail)} onRead={() => openDocumentReader(selectedDocumentDetail)} onQuiz={() => openAiQuiz(selectedDocumentDetail)} onRate={(rating) => handleRateDocument(selectedDocumentDetail.id, rating)} /><ToastNotice notice={notice} onClose={() => setNotice(null)} /></SafeAreaView>;
   if (showTopUpModal) return <SafeAreaView style={[styles.container, styles.lightContainer]}><TopUpScreen balance={userXu} amount={topUpAmount} requiredFee={topUpStandalone ? 0 : selectedMentorFee} onChangeAmount={setTopUpAmount} onClose={() => { setShowTopUpModal(false); if (!topUpStandalone) setShowBookingModal(true); }} onContinue={() => setShowPayOSPayment(true)} /></SafeAreaView>;
   if (showPayOSPayment) return <SafeAreaView style={[styles.container, styles.lightContainer]}><PayOSPayment coins={topUpAmount} email={email} onCancel={() => setShowPayOSPayment(false)} onPaid={(payment) => { setUserXu(payment.userXu); setCurrentUser(previous => ({...previous,userXu:payment.userXu})); setShowPayOSPayment(false); setShowTopUpModal(false); if(!topUpStandalone)setShowBookingModal(true); setNotice({title:'Nạp Xu thành công',message:`PayOS đã xác nhận và cộng ${payment.coins} Xu vào ví PSIFU.`}); }} /></SafeAreaView>;
-  if (showBookingModal) return <SafeAreaView style={[styles.container, styles.lightContainer]}><AppointmentFlow mentor={selectedMentor} course={selectedBookingCourse} fee={selectedMentorFee} slots={selectedMentorSlots} onCancel={() => setShowBookingModal(false)} onSubmit={submitBooking} /></SafeAreaView>;
+  if (showBookingModal) return <SafeAreaView style={[styles.container, styles.lightContainer]}><AppointmentFlow mentor={selectedMentor} course={selectedBookingCourse} fee={selectedMentorFee} onCancel={() => setShowBookingModal(false)} onSubmit={submitBooking} onLoadAvailability={date => Database.getMentorAvailability(selectedMentorId,date)} /></SafeAreaView>;
 
   return (
     <SafeAreaView style={[styles.container, themeContainer]}>
