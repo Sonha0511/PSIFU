@@ -29,7 +29,8 @@
     },
     "plugins": [
       "expo-status-bar",
-      "expo-font"
+      "expo-font",
+      "./plugins/withJitsiGradleCompatibility"
     ],
     "extra": {
       "eas": {
