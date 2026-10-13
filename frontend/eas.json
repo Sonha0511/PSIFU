@@ -13,7 +13,11 @@
       }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://psifu-api.onrender.com/api",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "667620888928-mdv8geuv2403na059qc9v4d8m1ileh2u.apps.googleusercontent.com"
+      }
     },
     "production": {
       "autoIncrement": true,
