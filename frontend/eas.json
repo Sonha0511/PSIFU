@@ -19,6 +19,13 @@
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "667620888928-mdv8geuv2403na059qc9v4d8m1ileh2u.apps.googleusercontent.com"
       }
     },
+    "apk": {
+      "extends": "production",
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
     "production": {
       "autoIncrement": true,
       "env": {
