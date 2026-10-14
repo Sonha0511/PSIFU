@@ -1,20 +1,22 @@
-import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function DocumentDetail({ document, unlocked, onBack, onUnlock, onRead, onQuiz, rating, onRate }) {
-  const fee = Number(document.fee || 0);
+export default function DocumentDetail({document,unlocked,onBack,onUnlock,onRead,rating,onRate,saved,onSave}) {
+  const [busy,setBusy]=useState(false);const lock=useRef(false);
+  const run=async task=>{if(lock.current)return;lock.current=true;setBusy(true);try{await task()}catch(e){Alert.alert('Chưa thực hiện được',e.message||'Vui lòng thử lại.')}finally{lock.current=false;setBusy(false)}};
   return <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-    <View style={styles.top}><TouchableOpacity style={styles.back} onPress={onBack}><Ionicons name="chevron-back" size={22} color="#102A56" /></TouchableOpacity><Text numberOfLines={1} style={styles.topTitle}>Chi tiết tài liệu</Text><View style={styles.topMark}><Ionicons name="bookmark-outline" size={18} color="#173F83" /></View></View>
-    <View style={styles.hero}><View style={styles.fileIcon}><Text style={styles.fileChip}>{document.id || document.course || 'PRF192'}</Text><Text style={styles.fileName}>Final Review</Text><Text style={styles.fileMini}>C · C Language</Text></View><View style={{ flex: 1 }}><View style={styles.heroTags}><Text style={styles.code}>{document.id || document.course || 'PSIFU'}</Text><Text style={styles.study}>Study Guide</Text></View><Text style={styles.title}>{document.name || document.title}</Text><Text style={styles.meta}>{document.term || 'Tài liệu học tập'} · PDF · 24 trang</Text><View style={styles.divider}/><Text style={styles.meta}>24 trang · ★ 4.9 · 324 Unlocks</Text></View></View>
-    <View style={styles.author}><View style={styles.avatar}><Text style={styles.avatarText}>NA</Text></View><View style={{ flex: 1 }}><Text style={styles.authorName}>{document.mentorName || 'Nguyễn Văn A'} <Text style={styles.mentorTag}>VERIFIED MENTOR</Text></Text><Text style={styles.authorSub}>{document.specialty || 'Document Creator'}</Text></View></View>
-    <Section title="Tóm tắt nội dung"><Text style={styles.copy}>Tài liệu tổng hợp kiến thức trọng tâm, ví dụ minh họa và các dạng bài thường gặp. Dùng để ôn tập nhanh trước bài kiểm tra hoặc theo dõi khi học trên lớp.</Text><View style={styles.tags}><Tag text="Kiến thức cốt lõi" /><Tag text="Ví dụ thực hành" /><Tag text="Ôn tập kiểm tra" /></View></Section>
-    <Section title="Bạn sẽ học được"><Point text="Các khái niệm quan trọng của môn học" /><Point text="Cách xử lý bài tập theo từng bước" /><Point text="Mẹo tránh các lỗi thường gặp" /></Section>
-    <Section title="⌑ Preview" right="2 trang xem trước miễn phí"><PreviewPage page="TRANG 1 / 24" title="Trang 1: Khái niệm & Con trỏ cơ bản"/><PreviewPage page="TRANG 2 / 24" title="Trang 2: Cấp phát động malloc/calloc" second/><View style={styles.previewLock}><Ionicons name="lock-closed" size={18} color="#155EEF"/><Text style={styles.previewLockTitle}>Trang 3 – 24: Unlock Document để tiếp tục đọc</Text><Text style={styles.previewLockCopy}>Mở khóa vĩnh viễn để học 24 trang kèm mã nguồn bài tập.</Text></View></Section>
-    <Section title="Đánh giá tài liệu" right={rating ? `${rating}/5 sao` : 'Chưa đánh giá'}><View style={styles.rateRow}>{[1,2,3,4,5].map(value => <TouchableOpacity key={value} onPress={() => onRate(value)}><Ionicons name={value <= rating ? 'star' : 'star-outline'} size={26} color="#173F83" /></TouchableOpacity>)}</View></Section>
-    {unlocked ? <View style={styles.unlocked}><Ionicons name="checkmark-circle" size={20} color="#173F83" /><View style={{ flex: 1 }}><Text style={styles.unlockedTitle}>Bạn đã mở khóa tài liệu</Text><Text style={styles.unlockedCopy}>Có thể đọc nội dung và làm quiz ôn tập ngay.</Text></View></View> : <View style={styles.locked}><Ionicons name="lock-closed-outline" size={21} color="#173F83" /><View style={{ flex: 1 }}><Text style={styles.lockedTitle}>Mở khóa để đọc đầy đủ</Text><Text style={styles.lockedCopy}>Sử dụng {fee} Xu để mở tài liệu này.</Text></View></View>}
-    <TouchableOpacity style={styles.primary} onPress={() => unlocked ? onRead() : onUnlock()}><Ionicons name={unlocked ? 'reader-outline' : 'lock-open-outline'} size={18} color="#FFFFFF" /><Text style={styles.primaryText}>{unlocked ? 'ĐỌC TÀI LIỆU' : `MỞ KHÓA · ${fee} XU`}</Text></TouchableOpacity>
-    {unlocked ? <TouchableOpacity style={styles.secondary} onPress={onQuiz}><Ionicons name="sparkles-outline" size={18} color="#173F83" /><Text style={styles.secondaryText}>LÀM QUIZ ÔN TẬP</Text></TouchableOpacity> : null}
+    <View style={styles.top}><TouchableOpacity onPress={onBack}><Ionicons name="arrow-back" size={24} color="#155EEF"/></TouchableOpacity><Text style={styles.topTitle}>Chi tiết tài liệu</Text><TouchableOpacity disabled={busy} onPress={()=>run(()=>onSave(!saved))} accessibilityLabel={saved?'Bỏ lưu tài liệu':'Lưu tài liệu'}><Ionicons name={saved?'bookmark':'bookmark-outline'} size={24} color="#155EEF"/></TouchableOpacity></View>
+    <Text style={styles.title}>{document.title||document.name}</Text>
+    <Text style={styles.meta}>{document.course||document.code||'Học liệu'} · {document.term||'Chưa cập nhật học kỳ'}{document.pages?' · '+document.pages+' trang':''}</Text>
+    <View style={styles.author}><Text style={styles.authorName}>{document.mentorName||'PSIFU Learning Library'}</Text></View>
+    <Section title="Nội dung"><Text style={styles.copy}>{document.description||'Người đăng chưa cung cấp mô tả.'}</Text></Section>
+    <Text style={styles.copy}>{unlocked?'Bạn có quyền đọc tài liệu này.':`Mở khóa với ${Number(document.fee||0)} Xu. Quyền đọc được lưu theo tài khoản.`}</Text>
+    <TouchableOpacity disabled={busy} style={[styles.primary,busy&&{opacity:.5}]} onPress={()=>run(unlocked?onRead:onUnlock)}><Text style={styles.primaryText}>{busy?'ĐANG XỬ LÝ…':unlocked?'ĐỌC TÀI LIỆU':`MỞ KHÓA · ${Number(document.fee||0)} XU`}</Text></TouchableOpacity>
+    <Section title="Đánh giá của bạn" right={rating?`${rating}/5 sao`:'Chưa đánh giá'}>
+      <Text style={styles.copy}>{unlocked?'Đánh giá được lưu vào tài khoản của bạn.':'Mở khóa để đánh giá tài liệu.'}</Text>
+      <View style={styles.rateRow}>{[1,2,3,4,5].map(value=><TouchableOpacity key={value} accessibilityLabel={value+' sao'} disabled={!unlocked||busy} onPress={()=>run(()=>onRate(value))}><Ionicons name={value<=rating?'star':'star-outline'} size={30} color={unlocked?'#155EEF':'#94A3B8'}/></TouchableOpacity>)}</View>
+    </Section>
   </ScrollView>;
 }
 function Section({ title, right, children }) { return <View style={styles.section}><View style={styles.sectionHead}><Text style={styles.sectionTitle}>{title}</Text>{right ? <Text style={styles.sectionRight}>{right}</Text> : null}</View>{children}</View>; }

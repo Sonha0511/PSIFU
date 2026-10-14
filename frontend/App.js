@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert, TextInput, Modal, Dimensions, FlatList, Image } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { KeyboardAvoidingView, Platform, StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert, TextInput, Modal, Dimensions, FlatList, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { File } from 'expo-file-system';
+import { appendUploadFile } from './platform/uploadFile';
 
 import { fptData } from './data/fptData';
 import { Database } from './data/database';
@@ -42,6 +42,7 @@ import ChangePassword from './pages/ChangePassword';
 import ProfileSetup from './pages/ProfileSetup';
 import Onboarding from './pages/Onboarding';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getRoleTheme, setActiveRole } from './theme/roleTheme';
 
 const { width } = Dimensions.get('window');
 const BOOKING_TIME_SLOTS = ['09:00', '10:00', '14:00', '15:00', '19:00'];
@@ -66,6 +67,7 @@ const getAvailableTimeSlots = (date, occupiedTimes = [], openedSlots = []) => {
 const ALL_TERMS = ['Kỳ 1', 'Kỳ 2', 'Kỳ 3', 'Kỳ 4', 'Kỳ 5', 'Kỳ 6', 'Kỳ 7','Kỳ 8', 'Kỳ 9'];
 
 export default function App() {
+  const sessionEpoch = useRef(0);
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userRole, setUserRole] = useState('mentee');
@@ -81,7 +83,10 @@ export default function App() {
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [selectedQuizDocument, setSelectedQuizDocument] = useState(null);
   const [documentRatings, setDocumentRatings] = useState({});
+  const [documentActivity,setDocumentActivity]=useState({});
   const [documentSearch, setDocumentSearch] = useState('');
+  const [documentCourse, setDocumentCourse] = useState(null);
+  const [communityCourse, setCommunityCourse] = useState(null);
   const [notice, setNotice] = useState(null);
   const [authScreen, setAuthScreen] = useState('login'); 
   const [email, setEmail] = useState('');
@@ -112,13 +117,14 @@ export default function App() {
   // Thông tin User
   const [university, setUniversity] = useState('');
   const [academicYear, setAcademicYear] = useState('Năm 1');
-  const [fptK, setFptK] = useState(''); 
+  const [fptK, setFptK] = useState('');
+  const [studentId, setStudentId] = useState('');
   const [lastCommunityTerm, setLastCommunityTerm] = useState('');
   const [shouldShowCommunityFilter, setShouldShowCommunityFilter] = useState(false);
   const [currentTerm, setCurrentTerm] = useState('Kỳ 1');
   const [major, setMajor] = useState('Computing');
-  const [specialization, setSpecialization] = useState('SE');
-  const [track, setTrack] = useState('JS');
+  const [specialization, setSpecialization] = useState('');
+  const [track, setTrack] = useState('');
   const [fullName, setFullName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [userXu, setUserXu] = useState(20);
@@ -160,17 +166,25 @@ export default function App() {
   ];
 
   const handleLoginSuccess = (user) => {
+    setActiveRole(user.role);
+    const epoch = ++sessionEpoch.current;
+    const apply = fn => value => { if (sessionEpoch.current === epoch) fn(value); };
+    setCurrentTab('home');
+    setMentorProfiles([]);setMyBookings([]);setMentorDocuments([]);setCourses([]);setUnlockedDocs({});setIsPremium(false);
+    setDocumentActivity({});setDocumentRatings({});
+    Database.getDocumentActivity().then(apply(rows=>{setDocumentActivity(Object.fromEntries(rows.map(row=>[String(row.documentId),row])));})).catch(()=>{});
+    setShowOnboarding(false);
     setCurrentUser(user);
     setUserRole(user.role || 'mentee');
-    Database.getMentors().then(users => setMentorProfiles(users.map(item => ({ id: item.email, email: item.email, name: item.fullName, role: item.specialty || 'Mentor PSIFU', avatar: item.avatarUrl || '👨‍🏫', bio: item.mentorBio || `Mentor chuyên môn ${item.specialty || 'đa ngành'}.`, post: 'Sẵn sàng hỗ trợ mentee.', courses: item.mentorCourses || [], availableSlots: item.mentorAvailability?.accepting === false ? [] : (item.mentorAvailability?.slots || []).flatMap(slot => slot.ranges || []), fee: Number(item.mentorFee || 50) }))));
-    Database.getBookings().then(bookings => setMyBookings(user.role === 'mentor' ? bookings.filter(item => item.mentorEmail === user.email) : bookings.filter(item => item.menteeName === user.fullName)));
-    (user.role === 'mentor' ? Database.getMentorDocuments(user.email) : Database.getPublishedMentorDocuments()).then(setMentorDocuments).catch(() => setMentorDocuments([]));
-    Database.getDocumentUnlocks(user.email).then(ids => setUnlockedDocs(Object.fromEntries(ids.map(id => [id, true])))).catch(() => setUnlockedDocs({}));
+    Database.getMentors().then(apply(users => setMentorProfiles(users.map(item => ({ id: item.email, email: item.email, name: item.fullName, role: item.specialty || 'Mentor PSIFU', avatar: item.avatarUrl || '👨‍🏫', bio: item.mentorBio || `Mentor chuyên môn ${item.specialty || 'đa ngành'}.`, post: 'Sẵn sàng hỗ trợ mentee.', courses: item.mentorCourses || [], availableSlots: item.mentorAvailability?.accepting === false ? [] : (item.mentorAvailability?.slots || []).flatMap(slot => slot.ranges || []), fee: Number(item.mentorFee || 50) }))))).catch(() => {});
+    Database.getBookings().then(apply(bookings => setMyBookings(user.role === 'mentor' ? bookings.filter(item => item.mentorEmail === user.email) : bookings.filter(item => item.menteeEmail === user.email)))).catch(() => {});
+    (user.role === 'mentor' ? Database.getMentorDocuments(user.email) : Database.getPublishedMentorDocuments()).then(apply(setMentorDocuments)).catch(() => {});
+    Database.getDocumentUnlocks(user.email).then(apply(ids => setUnlockedDocs(Object.fromEntries(ids.map(id => [id, true]))))).catch(() => {});
     setEmail(user.email);
     setFullName(user.fullName);
     setAvatarUrl(user.avatarUrl || '');
     setUserXu(user.userXu);
-    Database.getSubscription(user.email).then(subscription => setIsPremium(!!subscription.isPremium)).catch(() => setIsPremium(false));
+    Database.getSubscription(user.email).then(apply(subscription => setIsPremium(!!subscription.isPremium))).catch(() => {});
     setHasCheckedInToday(user.hasCheckedInToday);
     
     if (!user.university || user.isFirstLogin) {
@@ -181,27 +195,39 @@ export default function App() {
       setShowOnboarding(true); 
     } else {
       setUniversity(user.university);
+      setStudentId(user.studentId || '');
       setAcademicYear(user.academicYear);
       setFptK(user.fptK);
       setCurrentTerm(user.currentTerm);
       setMajor(user.major || 'Computing');
-      setSpecialization(user.specialization || 'SE');
-      setTrack(user.track || (user.specialization === 'SE' ? 'JS' : ''));
+      setSpecialization(user.specialization || '');
+      setTrack(user.track || '');
       setActiveFilterTerm(user.currentTerm);
       setLastCommunityTerm(user.currentTerm);
-      Database.getCourses(user.currentTerm, user.major || 'Computing', user.specialization || 'SE', user.track || (user.specialization === 'SE' ? 'JS' : '')).then(setCourses).catch(() => setCourses([]));
+      Database.getCourses(user.currentTerm, user.major || 'Computing', user.specialization || '', user.track || '').then(apply(setCourses)).catch(() => {});
     }
     setIsLoggedIn(true);
   };
 
-  const handleLogout = async () => { await Database.logout(); setCurrentUser(null); setIsLoggedIn(false); };
+  const handleLogout = async () => {
+    setActiveRole('mentee');
+    ++sessionEpoch.current;
+    await Database.logout();
+    setCurrentUser(null);setIsLoggedIn(false);setAuthScreen('login');setEmail('');
+    setSelectedDocumentDetail(null);setSelectedDocumentReader(null);setSelectedQuizDocument(null);setSelectedLearningDoc(null);
+    setShowNotifications(false);setShowChangePassword(false);setShowEditProfileModal(false);setShowBookingModal(false);
+    setShowTopUpModal(false);setShowPayOSPayment(false);setTopUpStandalone(false);setShowOnboarding(false);
+    setSelectedMentor(null);setDocumentCourse(null);setCommunityCourse(null);setNotice(null);
+    setDocumentActivity({});setDocumentRatings({});setUnlockedDocs({});setMyBookings([]);setMentorDocuments([]);setCourses([]);
+    setUserXu(0);setIsPremium(false);setAvatarUrl('');setFullName('');
+  };
 
   const handleCompleteOnboarding = async (details = {}) => {
     const nextUniversity = details.university ?? university;
     const nextTerm = details.currentTerm ?? currentTerm;
     if (!nextUniversity.trim() || !nextTerm) return Alert.alert('Thông báo', 'Vui lòng điền Trường đại học và Học kỳ hiện tại!');
     const saved = await Database.updateUserData(email, {
-      university: nextUniversity.trim(), academicYear: details.academicYear ?? academicYear, fptK: details.fptK ?? fptK, studentId: details.studentId ?? '', major: details.major ?? 'Computing', specialization: details.specialization ?? 'SE', track: details.track ?? '', currentTerm: nextTerm, isFirstLogin: false
+      university: nextUniversity.trim(), academicYear: details.academicYear ?? academicYear, fptK: details.fptK ?? fptK, studentId: details.studentId ?? studentId, major: details.major ?? major, specialization: details.specialization ?? specialization, track: details.track ?? track, currentTerm: nextTerm, isFirstLogin: false
     });
 
     if (!saved) {
@@ -212,6 +238,8 @@ export default function App() {
     const nextMajor = details.major ?? major;
     const nextSpecialization = details.specialization ?? specialization;
     const nextTrack = details.track ?? track;
+    setStudentId(details.studentId ?? studentId);
+    setCurrentUser(previous => ({...previous, university:nextUniversity.trim(), academicYear:details.academicYear ?? academicYear, fptK:details.fptK ?? fptK, studentId:details.studentId ?? studentId, major:nextMajor, specialization:nextSpecialization, track:nextTrack, currentTerm:nextTerm, isFirstLogin:false}));
     setUniversity(nextUniversity.trim()); setAcademicYear(details.academicYear ?? academicYear); setFptK(details.fptK ?? fptK); setCurrentTerm(nextTerm); setMajor(nextMajor); setSpecialization(nextSpecialization); setTrack(nextTrack);
     setActiveFilterTerm(nextTerm); setLastCommunityTerm(nextTerm);
     Database.getCourses(nextTerm, nextMajor, nextSpecialization, nextTrack).then(setCourses).catch(() => setCourses([]));
@@ -228,10 +256,19 @@ export default function App() {
     catch(error) { Alert.alert('Điểm danh', error?.data?.msg || 'Chưa thể điểm danh lúc này.'); return false; }
   };
 
+  const cancelProfileEdit = () => {
+    setFullName(currentUser?.fullName || ''); setAvatarUrl(currentUser?.avatarUrl || '');
+    setUniversity(currentUser?.university || ''); setAcademicYear(currentUser?.academicYear || '');
+    setFptK(currentUser?.fptK || ''); setStudentId(currentUser?.studentId || '');
+    setMajor(currentUser?.major || ''); setSpecialization(currentUser?.specialization || '');
+    setTrack(currentUser?.track || ''); setCurrentTerm(currentUser?.currentTerm || 'Kỳ 1');
+    setShowEditProfileModal(false);
+  };
+
   const handleSaveProfile = async () => {
-    const success = await Database.updateUserData(email, { fullName, avatarUrl, university, academicYear, fptK, major, specialization, track, currentTerm });
+    const success = await Database.updateUserData(email, { fullName, avatarUrl, university, academicYear, fptK, studentId, major, specialization, track, currentTerm });
     if (success) {
-      setCurrentUser(previous => ({ ...previous, fullName, avatarUrl, university, academicYear, fptK, major, specialization, track, currentTerm }));
+      setCurrentUser(previous => ({ ...previous, fullName, avatarUrl, university, academicYear, fptK, studentId, major, specialization, track, currentTerm }));
       setActiveFilterTerm(currentTerm);
       Database.getCourses(currentTerm, major, specialization, track).then(setCourses).catch(() => setCourses([]));
       if (currentTerm !== lastCommunityTerm) {
@@ -240,7 +277,7 @@ export default function App() {
       }
       setShowEditProfileModal(false);
       Alert.alert('Thành công 🎉', 'Đã lưu và cập nhật lộ trình học tập mới!');
-    }
+    } else { Alert.alert('Chưa lưu được hồ sơ', 'Vui lòng kiểm tra mạng và thử lại.'); }
   };
 
   const pickAvatar = async () => {
@@ -250,7 +287,7 @@ export default function App() {
     if (result.canceled) return;
     try {
       const asset = result.assets[0]; const signature = await Database.getAvatarUploadSignature();
-      const form = new FormData(); form.append('file', new File(asset.uri)); form.append('api_key', signature.apiKey); form.append('timestamp', String(signature.timestamp)); form.append('folder', signature.folder); form.append('public_id', signature.publicId); form.append('overwrite', 'true'); form.append('signature', signature.signature);
+      const form = new FormData(); await appendUploadFile(form,asset); form.append('api_key', signature.apiKey); form.append('timestamp', String(signature.timestamp)); form.append('folder', signature.folder); form.append('public_id', signature.publicId); form.append('overwrite', 'true'); form.append('signature', signature.signature);
       const upload = await fetch(`https://api.cloudinary.com/v1_1/${signature.cloudName}/image/upload`, { method:'POST', body:form }); const uploaded = await upload.json(); if (!upload.ok || !uploaded.secure_url) throw new Error(upload.error?.message);
       setAvatarUrl(uploaded.secure_url);
     } catch (error) { Alert.alert('Không thể tải ảnh lên', error?.message || 'Vui lòng thử lại.'); }
@@ -270,31 +307,32 @@ export default function App() {
   };
   const openDocumentReader = async doc => { try { if (!doc.mentorEmail) return setSelectedDocumentReader(doc); const result = await Database.getMentorDocumentAccess(doc.id, email); setSelectedDocumentReader(result.document); } catch(error) { Alert.alert('Không thể mở tài liệu', error?.data?.msg || 'Vui lòng thử lại.'); } };
 
-  const handleRateDocument = (docId, rating) => {
-    setDocumentRatings(prev => ({ ...prev, [docId]: rating }));
-    Alert.alert('Cảm ơn bạn!', `Bạn đã đánh giá ${rating}/5 sao cho tài liệu này.`);
-    setNotice({ title: 'Cảm ơn đánh giá của bạn', message: `Bạn đã chấm ${rating}/5 sao cho tài liệu.` });
+  const saveDocumentActivity = async (docId,patch) => {
+    const result=await Database.saveDocumentActivity(docId,patch);
+    setDocumentActivity(previous=>({...previous,[docId]:result.activity}));
+    return result.activity;
   };
+  const handleRateDocument = (docId,rating) => saveDocumentActivity(docId,{rating});
   const handleUpdateBooking = async (bookingId, status) => {
     const success = await Database.updateBookingStatus(bookingId, status);
     if (success) {
       const bookings = await Database.getBookings();
-      setMyBookings(bookings.filter(item => item.menteeName === fullName));
+      try { const result = await Database.getCurrentUser(); const updatedUser = result.user || result; if (updatedUser.userXu !== undefined) { setUserXu(updatedUser.userXu); setCurrentUser(updatedUser); } } catch {}
+      setMyBookings(bookings.filter(item => userRole === 'mentor' ? item.mentorEmail === email : item.menteeEmail === email));
     }
     return success;
   };
 
-  const openAiQuiz = async (doc) => {
-    try { await Database.requestQuizAccess(email); setSelectedQuizDocument(doc); }
-    catch (error) { const code=error?.data?.code; Alert.alert(code === 'PREMIUM_REQUIRED' ? 'Đã dùng hết lượt Quiz Free' : 'Đã đạt giới hạn Quiz', code === 'PREMIUM_REQUIRED' ? 'Nâng cấp Premium để có nhiều lượt AI Quiz và phân tích chi tiết hơn.' : 'Bạn đã dùng hết lượt Quiz trong kỳ này.'); }
-  };
+  const openAiQuiz = () => Alert.alert('Quiz AI chưa sẵn sàng', 'Tính năng tạo bài từ tài liệu chưa được nối hoàn chỉnh. Bạn không bị trừ lượt Quiz hoặc Xu.');
 
   const handleBuyPremium = () => Alert.alert('PSIFU Premium', 'Thanh toán Premium đang được hoàn thiện. Bạn vẫn có thể nạp Xu và mở khóa tài liệu Mentor qua PayOS.');
 
   const triggerBooking = async (mentor, course = '') => {
     const today = new Date();
     const defaultDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
-    const availability = await Database.getMentorAvailability(mentor.id, defaultDate);
+    let availability;
+    try { availability = await Database.getMentorAvailability(mentor.id, defaultDate); }
+    catch(error) { Alert.alert('Không tải được lịch Mentor', error.message || 'Vui lòng thử lại.'); return; }
     setSelectedMentor(mentor.name);
     setSelectedMentorId(mentor.id);
     setSelectedMentorSlots(mentor.availableSlots || []);
@@ -315,6 +353,7 @@ export default function App() {
       return false;
     }
     if (userXu < selectedMentorFee) {
+      setBookingDate(finalDate); setBookingTime(finalTime); setBookingNote(finalNote);
       setShowBookingModal(false);
       setShowTopUpModal(true);
       return false;
@@ -333,8 +372,8 @@ export default function App() {
     }
     setShowBookingModal(false);
     if(bookingResult?.userXu!==undefined){setUserXu(bookingResult.userXu);setCurrentUser(previous=>({...previous,userXu:bookingResult.userXu}));}
-    const updatedBookings = await Database.getBookings();
-    setMyBookings(updatedBookings.filter(item => item.menteeName === fullName));
+    if (bookingResult?.booking) setMyBookings(previous => [bookingResult.booking, ...previous.filter(row => row.id !== bookingResult.booking.id)]);
+    try { const updatedBookings = await Database.getBookings(); setMyBookings(updatedBookings.filter(item => item.menteeEmail === email)); } catch {}
     Alert.alert('Đăng ký thành công', 'Yêu cầu đã gửi đến Mentor và sẽ xuất hiện trên lịch của Mentor.');
     setNotice({ title: 'Đã gửi lịch hẹn', message: 'Mentor sẽ xem và xác nhận lịch hẹn của bạn.' });
     return true;
@@ -347,7 +386,8 @@ export default function App() {
     setOccupiedBookingTimes(availability.occupiedTimes || []);
   };
 
-  const themeContainer = isDarkMode ? styles.darkContainer : styles.lightContainer;
+  const roleTheme = getRoleTheme(userRole);
+  const themeContainer = { backgroundColor: roleTheme.background };
   const themeText = isDarkMode ? styles.darkText : styles.lightText;
   const themeCard = isDarkMode ? styles.darkCard : styles.lightCard;
 
@@ -363,7 +403,7 @@ export default function App() {
       return <ForgotPassword onBack={() => setAuthScreen('login')} onCodeSent={(resetEmail) => { setLoginPrefillEmail(resetEmail); setAuthScreen('resetVerify'); }} />;
     }
     if (authScreen === 'resetVerify') {
-      return <VerifyEmail email={loginPrefillEmail} purpose="password-reset" autoSend={false} onBack={() => setAuthScreen('forgot')} onVerified={(resetEmail, code) => { setLoginPrefillEmail(resetEmail); setResetOtpCode(code); setAuthScreen('resetPassword'); }} />;
+      return <VerifyEmail email={loginPrefillEmail} purpose="password-reset" autoSend={true} onBack={() => setAuthScreen('forgot')} onVerified={(resetEmail, code) => { setLoginPrefillEmail(resetEmail); setResetOtpCode(code); setAuthScreen('resetPassword'); }} />;
     }
     if (authScreen === 'resetPassword') {
       return <ResetPassword email={loginPrefillEmail} otpCode={resetOtpCode} onBack={() => setAuthScreen('resetVerify')} onComplete={(resetEmail) => { setLoginPrefillEmail(resetEmail); setResetOtpCode(''); setAuthScreen('login'); }} />;
@@ -379,20 +419,20 @@ export default function App() {
 
   if (showOnboarding) return <ProfileSetup onComplete={handleCompleteOnboarding} />;
 
-  if (showChangePassword) return <SafeAreaView style={[styles.container, styles.lightContainer]}><ChangePassword email={email} onBack={() => setShowChangePassword(false)} /></SafeAreaView>;
+  if (showChangePassword) return <SafeAreaView style={[styles.container, styles.lightContainer]}><ChangePassword email={email} onBack={() => setShowChangePassword(false)} onForgot={() => Alert.alert('Xác minh bằng email','Bạn sẽ đăng xuất để đặt lại mật khẩu qua email.',[{text:'Ở lại',style:'cancel'},{text:'Tiếp tục',onPress:async()=>{await handleLogout();setShowChangePassword(false);setLoginPrefillEmail(email);setAuthScreen('resetVerify');}}])} /></SafeAreaView>;
   if (showNotifications) return <SafeAreaView style={[styles.container, styles.lightContainer]}><Notifications email={email} onBack={() => setShowNotifications(false)} /></SafeAreaView>;
 
   if (selectedQuizDocument) return <SafeAreaView style={[styles.container, styles.lightContainer]}><QuizScreen document={selectedQuizDocument} onBack={() => setSelectedQuizDocument(null)} onComplete={() => setSelectedQuizDocument(null)} /><ToastNotice notice={notice} onClose={() => setNotice(null)} /></SafeAreaView>;
 
-  if (selectedDocumentReader) return <SafeAreaView style={[styles.container, styles.lightContainer]}><DocumentReader document={selectedDocumentReader} onBack={() => setSelectedDocumentReader(null)} onQuiz={() => openAiQuiz(selectedDocumentReader)} /><ToastNotice notice={notice} onClose={() => setNotice(null)} /></SafeAreaView>;
-  if (selectedDocumentDetail) return <SafeAreaView style={[styles.container, styles.lightContainer]}><DocumentDetail document={selectedDocumentDetail} unlocked={!!unlockedDocs[selectedDocumentDetail.id] || Number(selectedDocumentDetail.fee || 0) === 0} rating={documentRatings[selectedDocumentDetail.id] || 0} onBack={() => setSelectedDocumentDetail(null)} onUnlock={() => handleUnlockDoc(selectedDocumentDetail)} onRead={() => openDocumentReader(selectedDocumentDetail)} onQuiz={() => openAiQuiz(selectedDocumentDetail)} onRate={(rating) => handleRateDocument(selectedDocumentDetail.id, rating)} /><ToastNotice notice={notice} onClose={() => setNotice(null)} /></SafeAreaView>;
-  if (showTopUpModal) return <SafeAreaView style={[styles.container, styles.lightContainer]}><TopUpScreen balance={userXu} amount={topUpAmount} requiredFee={topUpStandalone ? 0 : selectedMentorFee} onChangeAmount={setTopUpAmount} onClose={() => { setShowTopUpModal(false); if (!topUpStandalone) setShowBookingModal(true); }} onContinue={() => setShowPayOSPayment(true)} /></SafeAreaView>;
+  if (selectedDocumentReader) return <SafeAreaView style={[styles.container, styles.lightContainer]}><DocumentReader document={selectedDocumentReader} activity={documentActivity[selectedDocumentReader.id] || {}} onActivity={patch=>saveDocumentActivity(selectedDocumentReader.id,patch)} onBack={() => setSelectedDocumentReader(null)} onQuiz={() => openAiQuiz(selectedDocumentReader)} /><ToastNotice notice={notice} onClose={() => setNotice(null)} /></SafeAreaView>;
+  if (selectedDocumentDetail) return <SafeAreaView style={[styles.container, styles.lightContainer]}><DocumentDetail document={selectedDocumentDetail} unlocked={!!unlockedDocs[selectedDocumentDetail.id] || Number(selectedDocumentDetail.fee || 0) === 0} rating={documentActivity[selectedDocumentDetail.id]?.rating || 0} saved={!!documentActivity[selectedDocumentDetail.id]?.saved} onSave={saved=>saveDocumentActivity(selectedDocumentDetail.id,{saved})} onBack={() => setSelectedDocumentDetail(null)} onUnlock={() => handleUnlockDoc(selectedDocumentDetail)} onRead={() => openDocumentReader(selectedDocumentDetail)} onQuiz={() => openAiQuiz(selectedDocumentDetail)} onRate={(rating) => handleRateDocument(selectedDocumentDetail.id, rating)} /><ToastNotice notice={notice} onClose={() => setNotice(null)} /></SafeAreaView>;
+  if (showTopUpModal && !showPayOSPayment) return <SafeAreaView style={[styles.container, styles.lightContainer]}><TopUpScreen balance={userXu} amount={topUpAmount} requiredFee={topUpStandalone ? 0 : selectedMentorFee} onChangeAmount={setTopUpAmount} onClose={() => { setShowTopUpModal(false); if (!topUpStandalone) setShowBookingModal(true); }} onContinue={() => setShowPayOSPayment(true)} /></SafeAreaView>;
   if (showPayOSPayment) return <SafeAreaView style={[styles.container, styles.lightContainer]}><PayOSPayment coins={topUpAmount} email={email} onCancel={() => setShowPayOSPayment(false)} onPaid={(payment) => { setUserXu(payment.userXu); setCurrentUser(previous => ({...previous,userXu:payment.userXu})); setShowPayOSPayment(false); setShowTopUpModal(false); if(!topUpStandalone)setShowBookingModal(true); setNotice({title:'Nạp Xu thành công',message:`PayOS đã xác nhận và cộng ${payment.coins} Xu vào ví PSIFU.`}); }} /></SafeAreaView>;
-  if (showBookingModal) return <SafeAreaView style={[styles.container, styles.lightContainer]}><AppointmentFlow mentor={selectedMentor} course={selectedBookingCourse} fee={selectedMentorFee} onCancel={() => setShowBookingModal(false)} onSubmit={submitBooking} onLoadAvailability={date => Database.getMentorAvailability(selectedMentorId,date)} /></SafeAreaView>;
+  if (showBookingModal) return <SafeAreaView style={[styles.container, styles.lightContainer]}><AppointmentFlow initialDate={bookingDate} initialTime={bookingTime} initialNote={bookingNote} mentor={selectedMentor} course={selectedBookingCourse} fee={selectedMentorFee} onCancel={() => setShowBookingModal(false)} onSubmit={submitBooking} onLoadAvailability={date => Database.getMentorAvailability(selectedMentorId,date)} /></SafeAreaView>;
 
   return (
     <SafeAreaView style={[styles.container, themeContainer]}>
-      {userRole !== 'mentor' && !['home', 'community', 'chat', 'schedule', 'docs'].includes(currentTab) && <Header studentName={fullName} userXu={userXu} />}
+      {/* Các màn Mentee đã có header riêng; không chèn Header cũ ở phía trên nữa. */}
       
       {/* POPUP ONBOARDING LẦN ĐẦU ĐĂNG NHẬP */}
       <Modal visible={showOnboarding} animationType="slide" transparent={true}>
@@ -473,9 +513,9 @@ export default function App() {
       </Modal>
 
       {/* POPUP CHỈNH SỬA THÔNG TIN PROFILE */}
-      <Modal visible={showEditProfileModal} animationType="slide" transparent={true}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
+      <Modal visible={showEditProfileModal} animationType="slide" transparent={true} onRequestClose={cancelProfileEdit}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <ScrollView style={{maxHeight:'90%',width:'100%'}} contentContainerStyle={styles.modalCard} keyboardShouldPersistTaps="handled" automaticallyAdjustKeyboardInsets>
             <Text style={styles.modalTitle}>👤 Edit Profile</Text>
             <TouchableOpacity style={styles.avatarPicker} onPress={pickAvatar}>
               {avatarUrl ? <Image source={{ uri: avatarUrl }} style={styles.avatarPreview} /> : <View style={styles.avatarFallback}><Text style={styles.avatarFallbackText}>{(fullName || 'PS').split(' ').map(item => item[0]).slice(-2).join('')}</Text></View>}
@@ -486,31 +526,42 @@ export default function App() {
             <TextInput style={styles.popupInput} value={fullName} onChangeText={setFullName} />
             <Text style={styles.popupLabel}>Trường đại học</Text>
             <TextInput style={styles.popupInput} value={university} onChangeText={setUniversity} />
+            <Text style={styles.popupLabel}>Nhóm ngành</Text>
+            <TextInput style={styles.popupInput} value={major} onChangeText={setMajor} placeholder="Ví dụ: Computing, Business..." />
+            <Text style={styles.popupLabel}>Chuyên ngành</Text>
+            <TextInput style={styles.popupInput} value={specialization} onChangeText={setSpecialization} placeholder="Ví dụ: SE, AI, Marketing..." autoCapitalize="characters" />
+            <Text style={styles.popupLabel}>Hướng chuyên sâu</Text>
+            <TextInput style={styles.popupInput} value={track} onChangeText={setTrack} placeholder="Ví dụ: JS, .NET..." />
+            <Text style={styles.popupLabel}>Mã số sinh viên</Text>
+            <TextInput style={styles.popupInput} value={studentId} onChangeText={setStudentId} placeholder="Ví dụ: SE170001" autoCapitalize="characters" />
+            <Text style={styles.popupLabel}>Khóa</Text>
+            <TextInput style={styles.popupInput} value={fptK} onChangeText={setFptK} placeholder="Ví dụ: K20" />
             <Text style={styles.popupLabel}>Năm học hiện tại</Text>
             <TextInput style={styles.popupInput} value={academicYear} onChangeText={setAcademicYear} />
             <Text style={styles.popupLabel}>Học kỳ hiện tại</Text>
             <TextInput style={styles.popupInput} value={currentTerm} onChangeText={setCurrentTerm} />
             <View style={{flexDirection: 'row', width: '100%', justifyContent: 'space-between', marginTop: 20}}>
-              <TouchableOpacity style={[styles.btnPopupSubmit, {backgroundColor: '#64748b', flex: 0.45, marginTop: 0}]} onPress={() => setShowEditProfileModal(false)}>
+              <TouchableOpacity style={[styles.btnPopupSubmit, {backgroundColor: '#64748b', flex: 0.45, marginTop: 0}]} onPress={cancelProfileEdit}>
                 <Text style={{color: '#fff', fontWeight: 'bold'}}>ĐÓNG</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.btnPopupSubmit, {flex: 0.45, marginTop: 0}]} onPress={handleSaveProfile}>
                 <Text style={{color: '#fff', fontWeight: 'bold'}}>LƯU LẠI</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* NỘI DUNG CHÍNH CỦA APP ĐIỀU PHỐI QUA TAB */}
       <View style={{ flex: 1 }}>
-        {currentTab === 'home' && userRole !== 'mentor' && <HomeDashboard fullName={fullName} userEmail={email} userXu={userXu} hasCheckedInToday={hasCheckedInToday} currentTerm={currentTerm} mentors={mentorProfiles} bookings={myBookings} courses={courses} recentDocuments={mentorDocuments} onNotifications={() => setShowNotifications(true)} onNavigate={(tab) => { setCurrentTab(tab); if (tab === 'docs') setActiveFilterTerm(currentTerm); }} onBook={triggerBooking} />}
-        {currentTab === 'home' && userRole === 'mentor' && <MentorHub mentor={currentUser} screen="home" onNavigate={(tab) => setCurrentTab(tab)} />}
-        {currentTab === 'rewards' && <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }} style={styles.lightContainer}><View style={{ flexDirection:'row', alignItems:'center', gap:10, marginBottom:8 }}><TouchableOpacity onPress={() => setCurrentTab('home')}><Ionicons name="arrow-back" size={22} color="#173F83" /></TouchableOpacity><Text style={{ color:'#14213D', fontSize:17, fontWeight:'900' }}>Daily Rewards</Text></View><Gamification userXu={userXu} onUpdateXu={handleUpdateXu} hasCheckedInToday={hasCheckedInToday} onCheckInSuccess={handleCheckInSuccess} /></ScrollView>}
+      {currentTab === 'home' && userRole !== 'mentor' && <HomeDashboard major={specialization || major} university={university} fullName={fullName} userEmail={email} userXu={userXu} hasCheckedInToday={hasCheckedInToday} currentTerm={currentTerm} mentors={mentorProfiles} bookings={myBookings} courses={courses} recentDocuments={mentorDocuments} onNotifications={() => setShowNotifications(true)} onTopUp={() => { setTopUpStandalone(true); setShowTopUpModal(true); }} onNavigate={(tab) => { setCurrentTab(tab); if (tab === 'docs') setActiveFilterTerm(currentTerm); }} onBook={triggerBooking} />}
+        {currentTab === 'home' && userRole === 'mentor' && <MentorHub mentor={currentUser} onAvailabilitySaved={availability => setCurrentUser(previous => ({...previous,mentorAvailability:availability}))} screen="home" onNavigate={(tab) => setCurrentTab(tab)} />}
+        {currentTab === 'rewards' && <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }} style={styles.lightContainer}><View style={{ flexDirection:'row', alignItems:'center', gap:10, marginBottom:8 }}><TouchableOpacity onPress={() => setCurrentTab('home')}><Ionicons name="arrow-back" size={22} color="#173F83" /></TouchableOpacity><Text style={{ color:'#14213D', fontSize:17, fontWeight:'900' }}>Daily Rewards</Text></View><Gamification userXu={userXu} onUpdateXu={handleUpdateXu} hasCheckedInToday={hasCheckedInToday} onCheckInSuccess={handleCheckInSuccess} onOpenDocuments={() => {setDocumentCourse(null);setCurrentTab('docs');}} /></ScrollView>}
         
         {/* 1. COMMUNITY (GỌI ĐẾN FILE LOGIC RIÊNG BIỆT) */}
         {currentTab === 'community' && userRole !== 'mentor' && (
           <Community 
+            initialCourse={communityCourse}
             university={university}
             currentTerm={currentTerm}
             academicYear={academicYear}
@@ -528,16 +579,16 @@ export default function App() {
           />
         )}
 
-        {currentTab === 'mentor' && userRole === 'mentor' && <MentorHub mentor={currentUser} screen="sessions" onNavigate={(tab) => setCurrentTab(tab)} />}
+        {currentTab === 'mentor' && userRole === 'mentor' && <MentorHub mentor={currentUser} onAvailabilitySaved={availability => setCurrentUser(previous => ({...previous,mentorAvailability:availability}))} screen="sessions" onNavigate={(tab) => setCurrentTab(tab)} />}
 
         {/* 2. TÀI LIỆU */}
         {currentTab === 'community' && userRole === 'mentor' && <MentorCommunity mentor={currentUser} bookings={myBookings} onOpenChat={() => setCurrentTab('chat')} />}
         {currentTab === 'chat' && userRole === 'mentor' && <MentorMessages mentor={currentUser} bookings={myBookings} onBack={() => setCurrentTab('community')} />}
         {currentTab === 'chat' && userRole !== 'mentor' && <MentorInbox mentors={mentorProfiles} bookings={myBookings} menteeName={fullName} currentUserEmail={email} />}
-        {currentTab === 'schedule' && <BookingHub bookings={myBookings} onBack={() => setCurrentTab('home')} onUpdate={handleUpdateBooking} menteeName={fullName} />}
-        {currentTab === 'courses' && <MyCourses courses={courses} currentTerm={currentTerm} onBack={() => setCurrentTab('home')} onOpenCourse={() => setCurrentTab('docs')} />}
+        {currentTab === 'schedule' && <BookingHub bookings={myBookings} onBack={() => setCurrentTab('home')} onUpdate={handleUpdateBooking} menteeName={fullName} currentUserEmail={email} currentUserRole={userRole.toUpperCase()} />}
+        {currentTab === 'courses' && <MyCourses courses={courses} currentTerm={currentTerm} major={specialization || major} onLoadCourses={term => Database.getCourses(term,major,specialization,track)} onBack={() => setCurrentTab('home')} onOpenCourse={course => {setDocumentCourse(course.code);setCurrentTab('docs');}} onCommunity={(course,term) => {setCommunityCourse({code:course.code,term});setCurrentTab('community');}} />}
         {currentTab === 'docs' && userRole === 'mentor' && <MentorDocuments mentor={currentUser} />}
-        {currentTab === 'docs' && userRole !== 'mentor' && <MyDocuments documents={[...fptData, ...mentorDocuments].map(doc => ({ ...doc, id: doc.id || doc.code }))} unlockedDocs={unlockedDocs} onOpen={(doc) => setSelectedDocumentDetail(doc)} />}
+        {currentTab === 'docs' && userRole !== 'mentor' && <MyDocuments activity={documentActivity} documents={mentorDocuments.filter(doc => !documentCourse || doc.code === documentCourse || doc.course === documentCourse).map(doc => ({ ...doc, id: doc.id || doc.code }))} unlockedDocs={unlockedDocs} onOpen={(doc) => setSelectedDocumentDetail(doc)} />}
         {false && currentTab === 'docs' && userRole !== 'mentor' && (
           <ScrollView contentContainerStyle={{ padding: 20 }}>
             <View style={styles.docsHero}><View><Text style={styles.docsEyebrow}>LEARNING EXPLORER</Text><Text style={styles.docsTitle}>Tài liệu học tập</Text><Text style={styles.docsSubtitle}>Học theo môn, lưu tài liệu và làm quiz ôn tập.</Text></View><View style={styles.docsCoin}><Ionicons name="wallet-outline" size={16} color="#173F83" /><Text style={styles.docsCoinText}>{userXu} Xu</Text></View></View>
@@ -577,10 +628,10 @@ export default function App() {
         )}
 
         {/* 3. MENTOR */}
-        {currentTab === 'mentor' && userRole !== 'mentor' && <FindMentor mentors={mentorProfiles} courses={courses} currentTerm={currentTerm} bookings={myBookings} onBook={triggerBooking} />}
+        {currentTab === 'mentor' && userRole !== 'mentor' && <FindMentor mentors={mentorProfiles} courses={courses} currentTerm={currentTerm} bookings={myBookings} currentUser={currentUser} onNotifications={() => setShowNotifications(true)} onBook={triggerBooking} />}
 
-        {currentTab === 'profile' && userRole === 'mentor' && <MentorProfileHub user={{...currentUser, avatarUrl}} onUpdate={async next => { const updated={...currentUser,...next}; setCurrentUser(updated); if(next.avatarUrl)setAvatarUrl(next.avatarUrl); return Database.updateUserData(email, { fullName: next.fullName, mentorBio: next.mentorBio, avatarUrl: next.avatarUrl, mentorCourses: next.mentorCourses }); }} onLogout={handleLogout} />}
-        {currentTab === 'profile' && userRole !== 'mentor' && <ProfileHub user={{...currentUser, avatarUrl}} university={university} currentTerm={currentTerm} userXu={userXu} bookings={myBookings} mentors={mentorProfiles} documents={[...fptData, ...mentorDocuments]} unlockedDocs={unlockedDocs} onEdit={() => setShowEditProfileModal(true)} onTopUp={() => {setTopUpStandalone(true);setShowTopUpModal(true);}} onOpenDocument={(doc) => setSelectedDocumentDetail(doc)} onOpenSchedule={() => setCurrentTab('schedule')} onOpenChat={() => setCurrentTab('chat')} onChangePassword={() => setShowChangePassword(true)} onClaimReward={() => setNotice({ title: 'Phần thưởng', message: 'Hãy điểm danh trong Daily Rewards để nhận Xu.' })} onUpdateBooking={handleUpdateBooking} onLogout={handleLogout} />}
+        {currentTab === 'profile' && userRole === 'mentor' && <MentorProfileHub onChangePassword={() => setShowChangePassword(true)} onNotifications={() => setShowNotifications(true)} user={{...currentUser, avatarUrl}} onUpdate={async next => { const ok=await Database.updateUserData(email, { fullName: next.fullName, mentorBio: next.mentorBio, avatarUrl: next.avatarUrl, mentorCourses: next.mentorCourses }); if(ok){setCurrentUser(previous=>({...previous,...next}));setFullName(next.fullName);if(next.avatarUrl)setAvatarUrl(next.avatarUrl);}return ok; }} onLogout={handleLogout} />}
+        {currentTab === 'profile' && userRole !== 'mentor' && <ProfileHub user={{...currentUser, avatarUrl}} university={university} currentTerm={currentTerm} userXu={userXu} bookings={myBookings} mentors={mentorProfiles} documents={mentorDocuments} unlockedDocs={unlockedDocs} onEdit={() => setShowEditProfileModal(true)} onTopUp={() => {setTopUpStandalone(true);setShowTopUpModal(true);}} onOpenDocument={(doc) => setSelectedDocumentDetail(doc)} onOpenSchedule={() => setCurrentTab('schedule')} onOpenChat={() => setCurrentTab('chat')} onChangePassword={() => setShowChangePassword(true)} onClaimReward={() => setCurrentTab('rewards')} onOpenCourses={() => setCurrentTab('courses')} onUpdateBooking={handleUpdateBooking} onLogout={handleLogout} />}
 
         {/* 4. PROFILE */}
         {false && (
@@ -626,29 +677,29 @@ export default function App() {
       </View>
 
       {/* THANH NAVIGATION BAR ĐƯỢC ĐIỀU CHỈNH THỨ TỰ CHUẨN */}
-      <View style={styles.navBar}>
+      <View style={[styles.navBar, { backgroundColor: roleTheme.nav, borderTopColor: roleTheme.border, shadowColor: roleTheme.glow }]}>
         <TouchableOpacity style={styles.navItem} onPress={() => setCurrentTab('home')}>
-          <Ionicons name={currentTab === 'home' ? 'home' : 'home-outline'} size={20} color={currentTab === 'home' ? '#173F83' : '#71829D'} />
-          <Text style={[styles.navLabel, currentTab === 'home' && styles.navActiveText]}>Home</Text>
+          <Ionicons name={currentTab === 'home' ? 'home' : 'home-outline'} size={20} color={currentTab === 'home' ? roleTheme.primary : roleTheme.textMuted} />
+          <Text style={[styles.navLabel, {color:roleTheme.textMuted}, currentTab === 'home' && {color:roleTheme.primary}]}>Home</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={() => setCurrentTab('community')}>
-          <Ionicons name={currentTab === 'community' ? 'people' : 'people-outline'} size={20} color={currentTab === 'community' ? '#173F83' : '#71829D'} />
-          <Text style={[styles.navLabel, currentTab === 'community' && styles.navActiveText]}>Community</Text>
+          <Ionicons name={currentTab === 'community' ? 'people' : 'people-outline'} size={20} color={currentTab === 'community' ? roleTheme.primary : roleTheme.textMuted} />
+          <Text style={[styles.navLabel, {color:roleTheme.textMuted}, currentTab === 'community' && {color:roleTheme.primary}]}>Community</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.navItem} onPress={() => setCurrentTab('mentor')}>
-          <Ionicons name={currentTab === 'mentor' ? 'school' : 'school-outline'} size={20} color={currentTab === 'mentor' ? '#173F83' : '#71829D'} />
-          <Text style={[styles.navLabel, currentTab === 'mentor' && styles.navActiveText]}>{userRole === 'mentor' ? 'Sessions' : 'Mentor'}</Text>
+          <Ionicons name={currentTab === 'mentor' ? 'school' : 'school-outline'} size={20} color={currentTab === 'mentor' ? roleTheme.primary : roleTheme.textMuted} />
+          <Text style={[styles.navLabel, {color:roleTheme.textMuted}, currentTab === 'mentor' && {color:roleTheme.primary}]}>{userRole === 'mentor' ? 'Sessions' : 'Mentor'}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.navItem} onPress={() => setCurrentTab('schedule')}>
-          <Ionicons name={currentTab === 'schedule' ? 'calendar' : 'calendar-outline'} size={20} color={currentTab === 'schedule' ? '#173F83' : '#71829D'} />
-          <Text style={[styles.navLabel, currentTab === 'schedule' && styles.navActiveText]}>Schedule</Text>
+          <Ionicons name={currentTab === 'schedule' ? 'calendar' : 'calendar-outline'} size={20} color={currentTab === 'schedule' ? roleTheme.primary : roleTheme.textMuted} />
+          <Text style={[styles.navLabel, {color:roleTheme.textMuted}, currentTab === 'schedule' && {color:roleTheme.primary}]}>Schedule</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.navItem} onPress={() => setCurrentTab('profile')}>
-          <Ionicons name={currentTab === 'profile' ? 'person' : 'person-outline'} size={20} color={currentTab === 'profile' ? '#173F83' : '#71829D'} />
-          <Text style={[styles.navLabel, currentTab === 'profile' && styles.navActiveText]}>Profile</Text>
+          <Ionicons name={currentTab === 'profile' ? 'person' : 'person-outline'} size={20} color={currentTab === 'profile' ? roleTheme.primary : roleTheme.textMuted} />
+          <Text style={[styles.navLabel, {color:roleTheme.textMuted}, currentTab === 'profile' && {color:roleTheme.primary}]}>Profile</Text>
         </TouchableOpacity>
       </View>
       <ToastNotice notice={notice} onClose={() => setNotice(null)} />
@@ -778,7 +829,7 @@ const styles = StyleSheet.create({
   btnSaveProfile: { padding: 14, borderRadius: 8, alignItems: 'center' },
   btnLogout: { marginTop: 20, alignItems: 'center', padding: 10, marginBottom: 30 },
 
-  navBar: { flexDirection: 'row', height: 62, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#E8EBF3', paddingBottom: 4 },
+  navBar: { flexDirection: 'row', height: 66, borderTopWidth: 1, paddingBottom: 5, shadowOpacity: .2, shadowRadius: 18, elevation: 14 },
   navItem: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   navIcon: { fontSize: 18, color: '#94a3b8' },
   navLabel: { fontSize: 9, color: '#7B879D', marginTop: 3, fontWeight: '700' },

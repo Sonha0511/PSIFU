@@ -12,12 +12,23 @@ export default function Login({ onLoginSuccess, onSwitchToRegister, onForgotPass
   const [loading, setLoading] = useState(false);
   const googleClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
   const canUseNativeGoogle = Boolean(NativeModules.RNGoogleSignin);
+  const isWeb = Platform.OS === 'web';
   useEffect(() => setEmail(prefilledEmail), [prefilledEmail]);
   useEffect(() => {
     if (!googleClientId || !canUseNativeGoogle) return;
     const { GoogleSignin } = require('@react-native-google-signin/google-signin');
     GoogleSignin.configure({ webClientId: googleClientId });
   }, [canUseNativeGoogle, googleClientId]);
+  useEffect(() => {
+    if (!isWeb || !googleClientId || typeof document === 'undefined') return undefined;
+    if (window.google?.accounts?.id) return undefined;
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+    return () => { script.remove(); };
+  }, [googleClientId, isWeb]);
   const login = async () => {
     if (!email.trim() || !password) return setError('Vui lòng nhập email và mật khẩu.');
     setLoading(true); setError('');
@@ -28,6 +39,23 @@ export default function Login({ onLoginSuccess, onSwitchToRegister, onForgotPass
   };
   const loginWithGoogle = async () => {
     if (!googleClientId) return setError('Đăng nhập Google chưa được cấu hình cho bản ứng dụng này.');
+    if (isWeb) {
+      if (!window.google?.accounts?.id) return setError('Google chưa sẵn sàng. Vui lòng thử lại.');
+      setLoading(true); setError('');
+      const handleCredential = async response => {
+        try {
+          const result = await Database.loginWithGoogle(response.credential);
+          if (result.success) onLoginSuccess(result.user);
+          else setError(result.msg || 'Không thể đăng nhập bằng Google.');
+        } catch (webError) { setError(webError?.message || 'Không thể đăng nhập bằng Google.'); }
+        finally { setLoading(false); }
+      };
+      window.google.accounts.id.initialize({ client_id: googleClientId, callback: handleCredential, ux_mode: 'popup' });
+      window.google.accounts.id.prompt(notification => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) setLoading(false);
+      });
+      return;
+    }
     if (!canUseNativeGoogle) return setError('Google Sign-In cần bản PSIFU Development Build; Expo Go chỉ dùng để xem giao diện và đăng nhập thường.');
     setLoading(true); setError('');
     try {

@@ -12,3 +12,15 @@ services:
         value: production
       - key: MONGODB_URI
         sync: false
+      - key: GOOGLE_WEB_CLIENT_ID
+        sync: false
+      - key: PAYOS_CLIENT_ID
+        sync: false
+      - key: PAYOS_API_KEY
+        sync: false
+      - key: PAYOS_CHECKSUM_KEY
+        sync: false
+      - key: PAYOS_RETURN_URL
+        value: https://psifu-api.onrender.com/payment/return
+      - key: PAYOS_CANCEL_URL
+        value: https://psifu-api.onrender.com/payment/cancel

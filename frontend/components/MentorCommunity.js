@@ -1,289 +1,30 @@
-import React, { useMemo, useState } from "react";
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-const channels = [
-  [
-    "megaphone-outline",
-    "# announcements",
-    "Thông báo điều phối từ PSIFU Core",
-    "Mới",
-  ],
-  [
-    "chatbubbles-outline",
-    "# general",
-    "Trò chuyện chung & kết nối mentor",
-    "18 phút",
-  ],
-  [
-    "bulb-outline",
-    "# mentoring-tips",
-    "Chia sẻ kinh nghiệm mentoring & giảng dạy",
-    "+4",
-  ],
-  [
-    "book-outline",
-    "# course-discussion",
-    "Trao đổi kiến thức môn học PRF, CSD...",
-    "1h",
-  ],
-  [
-    "attach-outline",
-    "# resources",
-    "Chia sẻ learning slides, cheatsheet, đề thi",
-    "",
-  ],
-  [
-    "folder-open-outline",
-    "# documents",
-    "Trao đổi về Documents & tài liệu",
-    "Cập nhật",
-  ],
-];
-export default function MentorCommunity({ mentor, bookings = [], onOpenChat }) {
-  const [mode, setMode] = useState("community"),
-    [query, setQuery] = useState("");
-  const mentees = useMemo(
-    () =>
-      bookings.filter((b) =>
-        `${b.menteeName} ${b.course}`
-          .toLowerCase()
-          .includes(query.toLowerCase()),
-      ),
-    [bookings, query],
-  );
-  return (
-    <ScrollView style={s.screen} contentContainerStyle={s.content}>
-      <View style={s.top}>
-        <Text style={s.title}>Community</Text>
-        <View style={s.topRight}>
-          <Ionicons name="search-outline" size={20} color="#102A56" />
-          <Ionicons name="options-outline" size={20} color="#102A56" />
-          <View style={s.avatar}>
-            <Ionicons name="person-outline" size={17} color="#fff" />
-          </View>
-        </View>
-      </View>
-      <View style={s.switch}>
-        <TouchableOpacity
-          style={[s.switchItem, mode === "community" && s.switchOn]}
-          onPress={() => setMode("community")}
-        >
-          <Ionicons
-            name="git-network-outline"
-            size={16}
-            color={mode === "community" ? "#fff" : "#102A56"}
-          />
-          <Text style={[s.switchText, mode === "community" && s.switchTextOn]}>
-            Mentor Community
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[s.switchItem, mode === "mentees" && s.switchOn]}
-          onPress={() => setMode("mentees")}
-        >
-          <Ionicons
-            name="chatbox-outline"
-            size={16}
-            color={mode === "mentees" ? "#fff" : "#102A56"}
-          />
-          <Text style={[s.switchText, mode === "mentees" && s.switchTextOn]}>
-            Mentee Chat
-          </Text>
-          <View style={s.dot} />
-        </TouchableOpacity>
-      </View>
-      {mode === "community" ? (
-        <Community />
-      ) : (
-        <Mentees
-          rows={mentees}
-          query={query}
-          setQuery={setQuery}
-          onOpenChat={onOpenChat}
-        />
-      )}
-    </ScrollView>
-  );
-}
-function Community() {
-  return (
-    <>
-      <View style={s.hero}>
-        <Text style={s.verify}>◉ VERIFIED MENTORS ONLY</Text>
-        <Text style={s.heroTitle}>PSIFU Mentor Community</Text>
-        <Text style={s.heroCopy}>
-          Trao đổi kinh nghiệm mentoring & chuẩn hóa tài liệu cùng cộng đồng
-          Mentor FPT.
-        </Text>
-        <Text style={s.heroMeta}>♧ 48 Mentors Online · ◇ Đại học FPT</Text>
-      </View>
-      <View style={s.lock}>
-        <Ionicons name="lock-closed-outline" size={21} color="#155EEF" />
-        <View style={{ flex: 1 }}>
-          <Text style={s.rowTitle}>Khu vực bảo mật nội bộ</Text>
-          <Text style={s.sub}>
-            Không gian bảo mật dành riêng cho Mentor. Không phải Mentee Semester
-            Community.
-          </Text>
-        </View>
-      </View>
-      <Text style={s.heading}># KÊNH CHUYÊN MÔN</Text>
-      {channels.map(([icon, title, sub, badge]) => (
-        <TouchableOpacity key={title} style={s.channel}>
-          <View style={s.channelIcon}>
-            <Ionicons name={icon} size={19} color="#155EEF" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.rowTitle}>{title}</Text>
-            <Text style={s.sub} numberOfLines={1}>
-              {sub}
-            </Text>
-          </View>
-          {badge ? <Text style={s.badge}>{badge}</Text> : null}
-          <Ionicons name="chevron-forward" size={17} color="#64748B" />
-        </TouchableOpacity>
-      ))}
-      <View style={s.recentHead}>
-        <Text style={s.heading}>▣ THẢO LUẬN GẦN ĐÂY</Text>
-        <Text style={s.link}>Xem tất cả</Text>
-      </View>
-      <Post
-        author="Nguyễn Minh"
-        channel="#mentoring-tips"
-        text="Mọi người thường chuẩn bị Session PRF192 như thế nào? Em thấy các bạn mentee K19 kỳ này hay gặp khó ở phần con trỏ và con trỏ cấp 2."
-      />
-      <Post
-        author="Trần Anh"
-        channel="#documents"
-        text="Mình vừa cập nhật bộ tài liệu CSD201: Cây AVL, Graph Algorithms & Bộ đề thi thử Practical Exam."
-        file
-      />
-    </>
-  );
-}
-function Mentees({ rows, query, setQuery, onOpenChat }) {
-  return (
-    <>
-      <Text style={s.menteeTitle}>
-        Your{`\n`}Mentees <Text style={s.count}>{rows.length} Active</Text>
-      </Text>
-      <Text style={s.sub}>Chat riêng với các Mentee có Booking với bạn.</Text>
-      <View style={s.search}>
-        <Ionicons name="search-outline" size={16} color="#71829D" />
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Tìm mentee theo tên, mã môn..."
-          placeholderTextColor="#8A9BB5"
-          style={s.input}
-        />
-      </View>
-      <View style={s.filters}>
-        <Text style={s.filterOn}>Tất cả</Text>
-        <Text style={s.filter}>● Có ca hôm nay</Text>
-        <Text style={s.filter}>□ Chưa đọc</Text>
-      </View>
-      {rows.map((b, i) => (
-        <TouchableOpacity
-          key={b.id || i}
-          style={s.mentee}
-          onPress={() => onOpenChat?.(b)}
-        >
-          <View style={s.person}>
-            <Text style={s.personText}>
-              {b.menteeName
-                ?.split(" ")
-                .map((x) => x[0])
-                .slice(-2)
-                .join("") || "SV"}
-            </Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.rowTitle}>{b.menteeName}</Text>
-            <Text style={s.sub}>
-              {b.course} · {b.note || "Session mentoring"}
-            </Text>
-            <Text style={s.sessionLine}>◷ {b.dateTime || "Chưa có lịch"} </Text>
-          </View>
-          <View>
-            <Text
-              style={
-                String(b.status).includes("xác nhận") ? s.confirm : s.pending
-              }
-            >
-              {String(b.status).includes("xác nhận")
-                ? "● CONFIRMED"
-                : "● PENDING"}
-            </Text>
-            <Ionicons
-              name="chevron-forward"
-              size={16}
-              color="#64748B"
-              style={{ alignSelf: "flex-end", marginTop: 18 }}
-            />
-          </View>
-        </TouchableOpacity>
-      ))}
-      {!rows.length && (
-        <View style={s.empty}>
-          <Ionicons name="people-outline" size={31} color="#71829D" />
-          <Text style={s.sub}>Chưa có mentee phù hợp</Text>
-        </View>
-      )}
-      <View style={s.policy}>
-        <Ionicons name="shield-checkmark-outline" size={18} color="#155EEF" />
-        <Text style={s.policyText}>
-          Chính sách trò chuyện cố vấn 1–1: chỉ mentor và mentee trong cùng
-          booking/session có thể nhắn tin riêng.
-        </Text>
-      </View>
-    </>
-  );
-}
-function Post({ author, channel, text, file }) {
-  return (
-    <View style={s.post}>
-      <View style={s.postHead}>
-        <View style={s.person}>
-          <Text style={s.personText}>
-            {author
-              .split(" ")
-              .map((x) => x[0])
-              .slice(-2)
-              .join("")}
-          </Text>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={s.rowTitle}>
-            {author} <Text style={s.mentor}>◉ MENTOR</Text>
-          </Text>
-          <Text style={s.channelText}>{channel} · 25m ago</Text>
-        </View>
-        <Ionicons name="ellipsis-vertical" size={17} color="#64748B" />
-      </View>
-      <Text style={s.postText}>{text}</Text>
-      {file && (
-        <View style={s.file}>
-          <Ionicons name="document-text" size={22} color="#fff" />
-          <Text style={s.fileText}>
-            CSD201_Practical_Mock_K19.zip{`\n`}14.8 MB · PDF + Java Source
-          </Text>
-          <Ionicons name="download-outline" size={18} color="#155EEF" />
-        </View>
-      )}
-      <Text style={s.react}>♧ 14 reactions ▢ 8 replies</Text>
-    </View>
-  );
+import React, {useMemo,useState} from 'react';
+import {ScrollView,StyleSheet,Text,TextInput,TouchableOpacity,View} from 'react-native';
+import {Ionicons} from '@expo/vector-icons';
+import CommunityRoom from './CommunityRoom';
+import DirectMessage from './DirectMessage';
+import {getRoleTheme,sharedTheme} from '../theme/roleTheme';
+const theme=getRoleTheme('mentor');
+const channels=[['announcements','Thông báo'],['general','Thảo luận chung'],['mentoring-tips','Kinh nghiệm mentoring'],['course-discussion','Trao đổi môn học'],['resources','Chia sẻ học liệu'],['documents','Thảo luận tài liệu']];
+export default function MentorCommunity({mentor,bookings=[]}) {
+  const [mode,setMode]=useState('community'),[query,setQuery]=useState(''),[channel,setChannel]=useState(null),[booking,setBooking]=useState(null),[todayOnly,setTodayOnly]=useState(false);
+  const today=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Ho_Chi_Minh'});
+  const rows=useMemo(()=>bookings.filter(row=>row.mentorEmail===mentor?.email&&row.status!=='Đã hủy'&&(!todayOnly||row.dateTime?.startsWith(today))&&`${row.menteeName} ${row.course}`.toLowerCase().includes(query.toLowerCase())),[bookings,mentor?.email,query,today,todayOnly]);
+  if(channel)return <CommunityRoom key={channel[0]} roomId={'mentor-community::'+channel[0]} title={channel[1]} user={mentor} readOnly={channel[0]==='announcements'&&mentor.role!=='admin'} onBack={()=>setChannel(null)}/>;
+  if(booking)return <DirectMessage booking={booking} mentorName={mentor.fullName} mentorEmail={mentor.email} menteeName={booking.menteeName} currentUserName={mentor.fullName} currentUserEmail={mentor.email} currentUserRole="MENTOR" onBack={()=>setBooking(null)}/>;
+  return <ScrollView style={s.screen} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+    <Text style={s.title}>Cộng đồng Mentor</Text>
+    <View style={s.switch}>{[['community','Kênh Mentor'],['mentees','Chat Mentee']].map(([value,label])=><TouchableOpacity key={value} style={[s.switchItem,mode===value&&s.switchOn]} onPress={()=>setMode(value)}><Text style={[s.switchText,mode===value&&s.switchTextOn]}>{label}</Text></TouchableOpacity>)}</View>
+    {mode==='community'?<><Text style={s.heading}>Kênh trao đổi chuyên môn</Text><Text style={s.sub}>Chỉ Mentor và quản trị viên truy cập được các kênh này.</Text>{channels.map(item=><TouchableOpacity key={item[0]} style={s.channel} onPress={()=>setChannel(item)}><Ionicons name="chatbubbles-outline" size={24} color={theme.secondary}/><View style={{flex:1}}><Text style={s.rowTitle}>{item[1]}</Text><Text style={s.sub}>#{item[0]}</Text></View><Ionicons name="chevron-forward" size={20} color={theme.textMuted}/></TouchableOpacity>)}</>:<>
+    <View style={s.search}><Ionicons name="search-outline" size={20} color={theme.textMuted}/><TextInput placeholderTextColor={theme.textMuted} style={s.input} value={query} onChangeText={setQuery} placeholder="Tìm tên Mentee hoặc môn học…"/></View>
+    <View style={s.filters}>{[[false,'Tất cả'],[true,'Có lịch hôm nay']].map(([value,label])=><TouchableOpacity key={label} onPress={()=>setTodayOnly(value)}><Text style={todayOnly===value?s.filterOn:s.filter}>{label}</Text></TouchableOpacity>)}</View>
+    {rows.map(row=><TouchableOpacity key={row.id||row._id} style={s.mentee} onPress={()=>setBooking(row)}><View style={{flex:1}}><Text style={s.rowTitle}>{row.menteeName}</Text><Text style={s.sub}>{row.course} · {row.dateTime}</Text><Text style={s.sub}>{row.status}</Text></View><Ionicons name="chatbubble-outline" size={24} color={theme.secondary}/></TouchableOpacity>)}
+    {!rows.length&&<Text style={s.sub}>Chưa có lịch hẹn phù hợp.</Text>}
+    </>}
+  </ScrollView>;
 }
 const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#F8FAFF" },
+  screen: { flex: 1, backgroundColor: theme.background },
   content: { padding: 16, paddingBottom: 40 },
   top: {
     height: 52,
@@ -291,13 +32,13 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  title: { fontSize: 22, color: "#102A56", fontWeight: "900" },
+  title: { fontSize: 22, color: theme.text, fontWeight: "900" },
   topRight: { flexDirection: "row", alignItems: "center", gap: 17 },
   avatar: {
     width: 31,
     height: 31,
     borderRadius: 16,
-    backgroundColor: "#155EEF",
+    backgroundColor: theme.primary,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -306,7 +47,7 @@ const s = StyleSheet.create({
     marginTop: 13,
     padding: 4,
     borderRadius: 12,
-    backgroundColor: "#DDE6FF",
+    backgroundColor: theme.surfaceMuted,
     flexDirection: "row",
   },
   switchItem: {
@@ -318,8 +59,8 @@ const s = StyleSheet.create({
     justifyContent: "center",
     position: "relative",
   },
-  switchOn: { backgroundColor: "#155EEF" },
-  switchText: { fontSize: 12, color: "#102A56", fontWeight: "800" },
+  switchOn: { backgroundColor: theme.primary },
+  switchText: { fontSize: 12, color: theme.textSecondary, fontWeight: "800" },
   switchTextOn: { color: "#fff" },
   dot: {
     width: 6,
@@ -348,20 +89,20 @@ const s = StyleSheet.create({
     gap: 10,
     marginTop: 15,
   },
-  rowTitle: { fontSize: 14, color: "#102A56", fontWeight: "900" },
-  sub: { fontSize: 12, color: "#64748B", lineHeight: 18, marginTop: 3 },
+  rowTitle: { fontSize: 14, color: theme.text, fontWeight: "900" },
+  sub: { fontSize: 12, color: theme.textSecondary, lineHeight: 18, marginTop: 3 },
   heading: {
     fontSize: 15,
-    color: "#102A56",
+    color: theme.text,
     fontWeight: "900",
     marginTop: 18,
     marginBottom: 9,
   },
   channel: {
-    backgroundColor: "#fff",
+    backgroundColor: theme.surface,
     borderRadius: 13,
     borderWidth: 1,
-    borderColor: "#E0E8F5",
+    borderColor: theme.border,
     padding: 11,
     flexDirection: "row",
     gap: 10,
@@ -442,28 +183,28 @@ const s = StyleSheet.create({
     paddingHorizontal: 10,
     marginTop: 12,
   },
-  input: { flex: 1, fontSize: 14, color: "#102A56" },
+  input: { flex: 1, fontSize: 14, color: theme.text },
   filters: { flexDirection: "row", gap: 7, marginVertical: 11 },
   filterOn: {
     fontSize: 11,
-    color: "#fff",
-    backgroundColor: "#155EEF",
+    color: sharedTheme.white,
+    backgroundColor: theme.primary,
     padding: 7,
     borderRadius: 7,
     fontWeight: "900",
   },
   filter: {
     fontSize: 11,
-    color: "#536E99",
-    backgroundColor: "#EEF2F8",
+    color: theme.textSecondary,
+    backgroundColor: theme.surfaceMuted,
     padding: 7,
     borderRadius: 7,
   },
   mentee: {
-    backgroundColor: "#fff",
+    backgroundColor: theme.surface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#E0E8F5",
+    borderColor: theme.border,
     padding: 10,
     flexDirection: "row",
     gap: 9,
@@ -475,8 +216,8 @@ const s = StyleSheet.create({
     fontWeight: "800",
     marginTop: 6,
   },
-  confirm: { fontSize: 11, color: "#15803D", fontWeight: "900" },
-  pending: { fontSize: 11, color: "#B45309", fontWeight: "900" },
+  confirm: { fontSize: 11, color: sharedTheme.success, fontWeight: "900" },
+  pending: { fontSize: 11, color: sharedTheme.warning, fontWeight: "900" },
   policy: {
     backgroundColor: "#EEF2FF",
     borderRadius: 12,

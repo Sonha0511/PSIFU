@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Database } from '../data/database';
 import { io } from 'socket.io-client';
@@ -19,7 +19,8 @@ const roomSeed = (channel, term) => [
   { id: 'sample', user: 'Minh K20', text: channel.code === 'general' ? 'Mọi người có lịch học tuần này chưa nhỉ?' : `Ai đang học ${channel.name} cùng trao đổi nhé.`, createdAt: new Date(Date.now() - 600000).toISOString() },
 ];
 
-export default function Community({ university, currentTerm, fullName, fptK, currentUser, courses = [], mentors = [], bookings = [] }) {
+export default function Community({ university, currentTerm, fullName, fptK, currentUser, courses = [], mentors = [], bookings = [], initialCourse }) {
+  currentTerm = initialCourse?.term || currentTerm;
   const semester = String(currentTerm || 'Kỳ 1').replace(/[^0-9]/g, '') || '1';
   const courseChannels = useMemo(() => {
     const termCourses = courses.filter((course) => !course.term || course.term === currentTerm);
@@ -28,20 +29,20 @@ export default function Community({ university, currentTerm, fullName, fptK, cur
       name: course.name,
     }));
   }, [courses, currentTerm]);
-  const [selectedCode, setSelectedCode] = useState('general');
+  const [selectedCode, setSelectedCode] = useState(initialCourse?.code?.toLowerCase() || 'general');
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState('');
   const [loading, setLoading] = useState(true);
-  const [chatOpen, setChatOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(!!initialCourse);
   const [channelQuery, setChannelQuery] = useState('');
   const [section, setSection] = useState('community');
   const [mode, setMode] = useState('community');
+  const [realtime, setRealtime] = useState(false);
   const scrollRef = useRef(null);
   const selectedChannel = selectedCode === 'general'
     ? { code: 'general', name: `Thảo luận chung trong ${currentTerm}` }
-    : courseChannels.find((course) => course.code === selectedCode) || courseChannels[0] || { code: 'general', name: 'General' };
+    : courseChannels.find((course) => course.code === selectedCode) || { code: selectedCode, name: selectedCode.toUpperCase() };
   const roomId = `${String(university || 'FPT University').toLowerCase()}::${currentTerm || 'Kỳ 1'}::${selectedChannel.code}`;
-  if (section === 'chat') return <View style={{flex:1,backgroundColor:'#FFFFFF'}}><View style={styles.segment}><TouchableOpacity style={styles.segmentItem} onPress={() => setSection('community')}><Text style={styles.segmentText}>Cộng đồng</Text></TouchableOpacity><View style={[styles.segmentItem,styles.segmentActive]}><Text style={[styles.segmentText,styles.segmentTextActive]}>Chat mentor</Text></View></View><MentorInbox mentors={mentors} bookings={bookings} menteeName={fullName || currentUser?.fullName}/></View>;
 
   const loadMessages = async (quiet = false) => {
     try {
@@ -58,8 +59,9 @@ export default function Community({ university, currentTerm, fullName, fptK, cur
     setLoading(true);
     loadMessages();
     let socket; let alive=true;
-    (async()=>{const token=await getAccessToken();if(!alive)return;socket=io(SOCKET_URL,{transports:['websocket'],auth:{token}});socket.on('connect',()=>socket.emit('chat:join',roomId));socket.on('chat:message',message=>{if(message.roomId===roomId)setMessages(rows=>rows.some(row=>(row.id||row._id)===(message.id||message._id))?rows:[...rows,message])})})().catch(()=>{});
-    return () => {alive=false;socket?.disconnect()};
+    (async()=>{const token=await getAccessToken();if(!alive)return;socket=io(SOCKET_URL,{transports:['websocket'],auth:{token},reconnection:true,reconnectionDelay:700,reconnectionDelayMax:5000});socket.on('connect',()=>{setRealtime(true);socket.emit('chat:join',roomId)});socket.on('disconnect',()=>setRealtime(false));socket.on('connect_error',()=>setRealtime(false));socket.on('chat:message',message=>{if(message.roomId===roomId)setMessages(rows=>rows.some(row=>(row.id||row._id)===(message.id||message._id))?rows:[...rows,message])})})().catch(()=>{});
+    const fallback=setInterval(()=>{if(!socket?.connected)loadMessages(true)},12000);
+    return () => {alive=false;clearInterval(fallback);setRealtime(false);socket?.disconnect()};
   }, [roomId]);
 
   useEffect(() => {
@@ -79,9 +81,12 @@ export default function Community({ university, currentTerm, fullName, fptK, cur
       await Database.saveChatMessage(roomId, message);
       await loadMessages(true);
     } catch (error) {
-      setMessages((previous) => [...previous, { ...message, id: `local-${Date.now()}` }]);
+      setDraft(text);
+      Alert.alert('Chưa gửi được tin nhắn', error?.message || 'Vui lòng thử lại.');
     }
   };
+
+  if (section === 'chat') return <View style={{flex:1,backgroundColor:'#FFFFFF'}}><View style={styles.segment}><TouchableOpacity style={styles.segmentItem} onPress={() => setSection('community')}><Text style={styles.segmentText}>Cộng đồng</Text></TouchableOpacity><View style={[styles.segmentItem,styles.segmentActive]}><Text style={[styles.segmentText,styles.segmentTextActive]}>Chat mentor</Text></View></View><MentorInbox mentors={mentors} bookings={bookings} menteeName={fullName || currentUser?.fullName} currentUserEmail={currentUser?.email}/></View>;
 
   const pickChannel = (code) => {
     setSelectedCode(code);
@@ -98,10 +103,10 @@ export default function Community({ university, currentTerm, fullName, fptK, cur
   };
 
   if (mode === 'chat') return <View style={{flex:1}}><View style={styles.modeTabs}><TouchableOpacity style={styles.modeTab} onPress={() => setMode('community')}><Text style={styles.modeOff}>Community</Text></TouchableOpacity><View style={[styles.modeTab,styles.modeActive]}><Text style={styles.modeOn}>Chat</Text></View></View><MentorInbox mentors={mentors} bookings={bookings} menteeName={fullName || currentUser?.fullName}/></View>;
-  if (chatOpen) return <KeyboardAvoidingView style={styles.chatPage} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+  if (chatOpen) return <KeyboardAvoidingView style={styles.chatPage} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}>
     <View style={styles.roomTopbar}>
       <TouchableOpacity onPress={() => setChatOpen(false)} hitSlop={10}><Ionicons name="chevron-back" size={23} color="#C9D7EB" /></TouchableOpacity>
-      <View style={styles.roomTitleWrap}><View style={styles.roomNameLine}><Text style={styles.roomHash}>#</Text><Text style={styles.roomName}>{selectedChannel.code}</Text><Text style={styles.roomMembers}>{currentTerm} · 248 Members</Text></View><Text style={styles.roomMeta}>Software Engineering · {fptK || 'K20'} · Fall 2026</Text></View>
+      <View style={styles.roomTitleWrap}><View style={styles.roomNameLine}><Text style={styles.roomHash}>#</Text><Text style={styles.roomName}>{selectedChannel.code}</Text><Text style={styles.roomMembers}>{currentTerm} · {realtime ? 'Realtime' : 'Đang đồng bộ'}</Text></View><Text style={styles.roomMeta}>Software Engineering · {fptK || 'K20'} · Fall 2026</Text></View>
       <TouchableOpacity hitSlop={10} onPress={() => setChannelQuery('')}><Ionicons name="search-outline" size={20} color="#AFC1DD" /></TouchableOpacity>
     </View>
     <View style={styles.segment}><View style={[styles.segmentItem,styles.segmentActive]}><Text style={[styles.segmentText,styles.segmentTextActive]}>Cộng đồng</Text></View><TouchableOpacity style={styles.segmentItem} onPress={() => setSection('chat')}><Text style={styles.segmentText}>Chat mentor</Text></TouchableOpacity></View>
@@ -120,14 +125,14 @@ export default function Community({ university, currentTerm, fullName, fptK, cur
       })}
       <View style={styles.typing}><View style={[styles.typingDot, { backgroundColor: '#5B8CFF' }]} /><View style={[styles.typingDot, { backgroundColor: '#22C55E', marginLeft: -3 }]} /><Text style={styles.typingText}>Lan and Phúc are typing...</Text></View>
     </ScrollView>
-    <View style={styles.roomComposer}><TouchableOpacity style={styles.plusButton}><Ionicons name="add" size={21} color="#B7C7E1" /></TouchableOpacity><TextInput value={draft} onChangeText={setDraft} placeholder={`Message #${selectedChannel.code}`} placeholderTextColor="#657998" style={styles.roomInput} multiline /><TouchableOpacity><Ionicons name="happy-outline" size={20} color="#F8B84A" /></TouchableOpacity><TouchableOpacity onPress={sendMessage} style={[styles.roomSend, !draft.trim() && styles.roomSendDisabled]}><Ionicons name="send" size={17} color="#BFD6FF" /></TouchableOpacity></View>
+    <View style={styles.roomComposer}><TouchableOpacity style={styles.plusButton} onPress={() => Alert.alert('Đính kèm', 'Tính năng đính kèm tệp sẽ được bổ sung sau.')}><Ionicons name="add" size={21} color="#B7C7E1" /></TouchableOpacity><TextInput value={draft} onChangeText={setDraft} placeholder={`Message #${selectedChannel.code}`} placeholderTextColor="#657998" style={styles.roomInput} multiline /><TouchableOpacity onPress={() => Alert.alert('Emoji', 'Bộ chọn emoji sẽ được bổ sung sau.')}><Ionicons name="happy-outline" size={20} color="#F8B84A" /></TouchableOpacity><TouchableOpacity onPress={sendMessage} style={[styles.roomSend, !draft.trim() && styles.roomSendDisabled]}><Ionicons name="send" size={17} color="#BFD6FF" /></TouchableOpacity></View>
   </KeyboardAvoidingView>;
 
-  return <KeyboardAvoidingView style={styles.page} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+  return <KeyboardAvoidingView style={styles.page} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}>
     <View style={styles.modeTabs}><View style={[styles.modeTab,styles.modeActive]}><Text style={styles.modeOn}>Community</Text></View><TouchableOpacity style={styles.modeTab} onPress={() => setMode('chat')}><Text style={styles.modeOff}>Chat mentor</Text></TouchableOpacity></View>
     <View style={styles.topbar}>
       <View><Text style={styles.title}>Community Hub</Text><Text style={styles.topSubtitle}>Kết nối, học hỏi và phát triển cùng PSIFU.</Text></View>
-      <View style={styles.topActions}><TouchableOpacity style={styles.roundButton}><Ionicons name="search-outline" size={19} color="#B8C8E4" /></TouchableOpacity><TouchableOpacity style={styles.roundButton}><Ionicons name="notifications-outline" size={19} color="#B8C8E4" /><View style={styles.dot} /></TouchableOpacity></View>
+      <View style={styles.topActions}><TouchableOpacity style={styles.roundButton} onPress={() => Alert.alert('Tìm kiếm', 'Hãy dùng ô “Tìm kênh hoặc môn học” bên dưới để tìm kiếm.')}><Ionicons name="search-outline" size={19} color="#B8C8E4" /></TouchableOpacity><TouchableOpacity style={styles.roundButton} onPress={() => Alert.alert('Thông báo', 'Bạn chưa có thông báo mới.')}><Ionicons name="notifications-outline" size={19} color="#B8C8E4" /><View style={styles.dot} /></TouchableOpacity></View>
     </View>
     <ScrollView ref={scrollRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <View style={styles.serverCard}>

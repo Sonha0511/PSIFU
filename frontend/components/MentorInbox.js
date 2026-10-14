@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import DirectMessage from './DirectMessage';
 
-const statusLabel = (status) => { const value = String(status || '').toLowerCase(); if (value.includes('xác nhận')) return 'ĐÃ XÁC NHẬN'; if (value.includes('hoàn thành')) return 'ĐÃ HOÀN THÀNH'; if (value.includes('hủy')) return 'ĐÃ HỦY'; return 'CHỜ XÁC NHẬN'; };
+const statusLabel = (status) => { const value = String(status || '').toLowerCase(); if (value === 'đã xác nhận') return 'ĐÃ XÁC NHẬN'; if (value.includes('hoàn thành')) return 'ĐÃ HOÀN THÀNH'; if (value.includes('hủy')) return 'ĐÃ HỦY'; return 'CHỜ XÁC NHẬN'; };
 
 export default function MentorInbox({ mentors = [], bookings = [], menteeName, currentUserEmail }) {
   const [chat, setChat] = useState(null);

@@ -11,6 +11,9 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { Database } from "../data/database";
 import HomeLiveChat from "./HomeLiveChat";
+import { getRoleTheme, sharedTheme } from "../theme/roleTheme";
+
+const theme = getRoleTheme('mentor');
 
 const DAYS = [
   "Thứ Hai",
@@ -23,10 +26,10 @@ const DAYS = [
 ];
 const defaultSlots = DAYS.map((day, index) => ({
   day,
-  ranges: index < 5 ? ["18:00 - 21:00"] : [],
+  ranges: [],
 }));
 
-export default function MentorHub({ mentor, screen = "home", onNavigate }) {
+export default function MentorHub({ mentor, screen = "home", onNavigate, onAvailabilitySaved }) {
   const [view, setView] = useState(screen === "sessions" ? "sessions" : "home");
   const [bookings, setBookings] = useState([]);
   const [accepting, setAccepting] = useState(
@@ -63,7 +66,7 @@ export default function MentorHub({ mentor, screen = "home", onNavigate }) {
   const active = useMemo(
     () =>
       bookings.filter(
-        (row) => !String(row.status).toLowerCase().includes("hủy"),
+        (row) => ["Chờ mentor xác nhận", "Đã xác nhận"].includes(row.status),
       ),
     [bookings],
   );
@@ -78,6 +81,7 @@ export default function MentorHub({ mentor, screen = "home", onNavigate }) {
         "Đã lưu lịch rảnh",
         "Thiết lập sẽ áp dụng cho các lượt đặt hẹn mới.",
       );
+      onAvailabilitySaved?.({accepting, slots});
       setView("home");
     } catch {
       Alert.alert("Không thể lưu", "Vui lòng kiểm tra kết nối và thử lại.");
@@ -101,11 +105,11 @@ export default function MentorHub({ mentor, screen = "home", onNavigate }) {
           onSave: saveAvailability,
           saving,
         }}
-        onBack={() => onNavigate?.("home")}
+        onBack={() => setView("home")}
       />
     );
   if (view === "calendar")
-    return <Calendar bookings={active} onBack={() => onNavigate?.("mentor")} />;
+    return <Calendar bookings={active} onBack={() => setView("sessions")} />;
   if (view === "sessions")
     return (
       <Sessions
@@ -127,7 +131,8 @@ export default function MentorHub({ mentor, screen = "home", onNavigate }) {
           Alert.alert("Thông báo", "Bạn chưa có thông báo mới.")
         }
       />
-      <Text style={s.brand}>PSIFU · MENTOR</Text>
+      <View style={s.ambient} pointerEvents="none" />
+      <Text style={s.brand}>PSIFU · MENTOR CONSOLE</Text>
       <Text style={s.greeting}>
         Xin chào, {mentor?.fullName || "Mentor"} 👋
       </Text>
@@ -144,7 +149,7 @@ export default function MentorHub({ mentor, screen = "home", onNavigate }) {
         />
       </View>
       <Section
-        title="Today's Sessions"
+        title="Lịch hẹn sắp tới"
         action="Xem tất cả"
         onPress={() => onNavigate?.("mentor")}
       />
@@ -175,6 +180,7 @@ export default function MentorHub({ mentor, screen = "home", onNavigate }) {
         name={mentor?.fullName}
         email={mentor?.email}
         role="MENTOR"
+        variant="mentor"
       />
       <Section
         title="Tài liệu của bạn"
@@ -182,14 +188,14 @@ export default function MentorHub({ mentor, screen = "home", onNavigate }) {
         onPress={() => onNavigate?.("docs")}
       />
       <TouchableOpacity style={s.card} onPress={() => onNavigate?.("docs")}>
-        <Ionicons name="document-text-outline" size={24} color="#155EEF" />
+        <Ionicons name="document-text-outline" size={24} color={theme.secondary} />
         <View style={{ flex: 1 }}>
           <Text style={s.cardTitle}>Quản lý tài liệu Mentor</Text>
           <Text style={s.copy}>
             Đăng, chỉnh sửa và theo dõi tài liệu của bạn.
           </Text>
         </View>
-        <Ionicons name="chevron-forward" size={18} color="#71829D" />
+        <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
       </TouchableOpacity>
     </ScrollView>
   );
@@ -200,7 +206,7 @@ function Header({ title, onNotification }) {
     <View style={s.header}>
       <Text style={s.title}>{title}</Text>
       <TouchableOpacity onPress={onNotification} accessibilityLabel="Thông báo">
-        <Ionicons name="notifications-outline" size={21} color="#102A56" />
+        <Ionicons name="notifications-outline" size={21} color={theme.text} />
       </TouchableOpacity>
     </View>
   );
@@ -220,7 +226,7 @@ function Section({ title, action, onPress }) {
 function Stat({ value, label, icon }) {
   return (
     <View style={s.stat}>
-      <Ionicons name={icon} size={18} color="#155EEF" />
+      <Ionicons name={icon} size={18} color={theme.secondary} />
       <Text style={s.statValue}>{value}</Text>
       <Text style={s.copy}>{label}</Text>
     </View>
@@ -229,13 +235,13 @@ function Stat({ value, label, icon }) {
 function Empty({ text }) {
   return (
     <View style={s.empty}>
-      <Ionicons name="calendar-clear-outline" size={28} color="#71829D" />
+      <Ionicons name="calendar-clear-outline" size={28} color={theme.textMuted} />
       <Text style={s.copy}>{text}</Text>
     </View>
   );
 }
 function Booking({ item, onConfirm }) {
-  const confirmed = String(item.status).toLowerCase().includes("xác nhận");
+  const confirmed = item.status === "Đã xác nhận";
   return (
     <View style={s.booking}>
       <Text style={s.cardTitle}>{item.course || "Phiên mentoring"}</Text>
@@ -355,12 +361,12 @@ function BackHeader({ title, onBack, right, onRight }) {
   return (
     <View style={s.header}>
       <TouchableOpacity onPress={onBack}>
-        <Ionicons name="arrow-back" size={21} color="#102A56" />
+        <Ionicons name="arrow-back" size={21} color={theme.text} />
       </TouchableOpacity>
       <Text style={s.title}>{title}</Text>
       {right ? (
         <TouchableOpacity onPress={onRight}>
-          <Ionicons name={right} size={20} color="#102A56" />
+          <Ionicons name={right} size={20} color={theme.text} />
         </TouchableOpacity>
       ) : (
         <View style={{ width: 20 }} />
@@ -369,7 +375,7 @@ function BackHeader({ title, onBack, right, onRight }) {
   );
 }
 const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#F8FAFF" },
+  screen: { flex: 1, backgroundColor: theme.background },
   content: { padding: 16, paddingBottom: 40 },
   header: {
     height: 52,
@@ -377,25 +383,26 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  title: { color: "#102A56", fontSize: 20, fontWeight: "900" },
-  brand: { color: "#155EEF", fontSize: 11, fontWeight: "900", marginTop: 12 },
-  greeting: { color: "#102A56", fontSize: 23, fontWeight: "900", marginTop: 6 },
+  title: { color: theme.text, fontSize: 20, fontWeight: "900" },
+  ambient: { position:'absolute', width:210, height:210, borderRadius:105, right:-115, top:40, backgroundColor:'rgba(33,199,199,.08)' },
+  brand: { color: theme.secondary, fontSize: 10, fontWeight: "900", marginTop: 12, letterSpacing: 1.2 },
+  greeting: { color: theme.text, fontSize: 23, fontWeight: "900", marginTop: 6 },
   statRow: { flexDirection: "row", gap: 10, marginTop: 16 },
   stat: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: theme.surface,
     borderRadius: 14,
     padding: 13,
     borderWidth: 1,
-    borderColor: "#E0E8F5",
+    borderColor: theme.border,
   },
   statValue: {
-    color: "#155EEF",
+    color: theme.secondary,
     fontSize: 24,
     fontWeight: "900",
     marginTop: 7,
   },
-  copy: { color: "#64748B", fontSize: 12, lineHeight: 18, marginTop: 3 },
+  copy: { color: theme.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 3 },
   section: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -403,12 +410,12 @@ const s = StyleSheet.create({
     marginTop: 22,
     marginBottom: 9,
   },
-  sectionTitle: { color: "#102A56", fontSize: 16, fontWeight: "900" },
-  link: { color: "#155EEF", fontSize: 12, fontWeight: "900" },
+  sectionTitle: { color: theme.text, fontSize: 16, fontWeight: "900" },
+  link: { color: theme.secondary, fontSize: 12, fontWeight: "900" },
   card: {
-    backgroundColor: "#fff",
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: "#E0E8F5",
+    borderColor: theme.border,
     borderRadius: 14,
     padding: 13,
     flexDirection: "row",
@@ -416,19 +423,19 @@ const s = StyleSheet.create({
     gap: 10,
     marginTop: 9,
   },
-  cardTitle: { color: "#102A56", fontSize: 14, fontWeight: "900" },
+  cardTitle: { color: theme.text, fontSize: 14, fontWeight: "900" },
   outline: {
     borderWidth: 1,
-    borderColor: "#BFD2FA",
+    borderColor: theme.secondary,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
-  outlineText: { color: "#155EEF", fontWeight: "900", fontSize: 12 },
+  outlineText: { color: theme.secondary, fontWeight: "900", fontSize: 12 },
   booking: {
-    backgroundColor: "#fff",
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: "#E0E8F5",
+    borderColor: theme.border,
     borderRadius: 14,
     padding: 13,
     marginTop: 9,
@@ -439,19 +446,19 @@ const s = StyleSheet.create({
     alignItems: "center",
     marginTop: 10,
   },
-  ok: { color: "#15803D", fontWeight: "900", fontSize: 11 },
-  pending: { color: "#B45309", fontWeight: "900", fontSize: 11 },
+  ok: { color: sharedTheme.success, fontWeight: "900", fontSize: 11 },
+  pending: { color: sharedTheme.warning, fontWeight: "900", fontSize: 11 },
   smallButton: {
-    backgroundColor: "#155EEF",
+    backgroundColor: theme.primary,
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 8,
   },
   smallButtonText: { color: "#fff", fontSize: 11, fontWeight: "900" },
   chat: {
-    backgroundColor: "#fff",
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: "#E0E8F5",
+    borderColor: theme.border,
     borderRadius: 14,
     padding: 13,
   },
@@ -463,37 +470,37 @@ const s = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: "#F3F6FD",
   },
-  messageName: { fontSize: 11, color: "#155EEF", fontWeight: "900" },
-  messageText: { fontSize: 12, color: "#243B5B", marginTop: 2 },
+  messageName: { fontSize: 11, color: theme.secondary, fontWeight: "900" },
+  messageText: { fontSize: 12, color: theme.textSecondary, marginTop: 2 },
   composer: {
     minHeight: 48,
     marginTop: 11,
-    backgroundColor: "#F1F5FF",
+    backgroundColor: theme.surfaceElevated,
     borderRadius: 9,
     paddingLeft: 10,
     flexDirection: "row",
     alignItems: "center",
   },
-  composerInput: { flex: 1, color: "#102A56", fontSize: 14 },
+  composerInput: { flex: 1, color: theme.text, fontSize: 14 },
   send: {
     width: 36,
     alignSelf: "stretch",
     borderRadius: 9,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#155EEF",
+    backgroundColor: theme.primary,
   },
-  sendDisabled: { backgroundColor: "#A8B9D7" },
+  sendDisabled: { backgroundColor: theme.textMuted },
   empty: {
     alignItems: "center",
-    backgroundColor: "#fff",
+    backgroundColor: theme.surface,
     borderRadius: 14,
     padding: 28,
     gap: 8,
   },
   primary: {
     minHeight: 50,
-    backgroundColor: "#155EEF",
+    backgroundColor: theme.primary,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",

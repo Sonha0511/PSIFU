@@ -3,12 +3,18 @@ import { clearAccessToken, request, setAccessToken } from './api';
 export const Database = {
   getAllUsers: () => request('/users'),
   getMentors: () => request('/mentors'),
-  getCourses: (term, major = 'Computing', specialization = 'SE', track = '') => request(`/courses?term=${encodeURIComponent(term)}&major=${encodeURIComponent(major)}&specialization=${encodeURIComponent(specialization)}&track=${encodeURIComponent(track)}`),
+  getCourses: (term, major = 'Computing', specialization = '', track = '') => request(`/courses?term=${encodeURIComponent(term)}&major=${encodeURIComponent(major)}&specialization=${encodeURIComponent(specialization)}&track=${encodeURIComponent(track)}`),
   saveUser: async user => { try { return await request('/users', { method: 'POST', body: JSON.stringify(user) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
   checkLogin: async (email, password) => { try { const result=await request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }); if(result.accessToken)await setAccessToken(result.accessToken); return result; } catch (error) { return error.data || { success: false, msg: error.message }; } },
   loginWithGoogle: async idToken => { try { const result=await request('/auth/google', { method: 'POST', body: JSON.stringify({ idToken }) }); if(result.accessToken)await setAccessToken(result.accessToken); return result; } catch (error) { return error.data || { success: false, msg: error.message }; } },
   logout: () => clearAccessToken(),
   logoutAllDevices: async () => { const result=await request('/auth/logout-all', { method:'POST' }); await clearAccessToken(); return result; },
+  getWalletHistory: () => request('/wallet/history'),
+  changePassword: async (currentPassword, newPassword) => {
+    const result = await request('/auth/password/change',{method:'POST',body:JSON.stringify({currentPassword,newPassword})});
+    await setAccessToken(result.accessToken);
+    return result;
+  },
   getCurrentUser: () => request('/auth/me'),
   sendEmailVerification: async email => { try { return await request('/auth/email-verification/send', { method: 'POST', body: JSON.stringify({ email }) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
   verifyEmailCode: async (email, code) => { try { return await request('/auth/email-verification/verify', { method: 'POST', body: JSON.stringify({ email, code }) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
@@ -27,6 +33,7 @@ export const Database = {
   getMentorAvailability: (email,date) => request(`/mentors/${encodeURIComponent(email)}/availability?date=${encodeURIComponent(date)}`),
   claimDailyCheckIn: () => request('/wallet/daily-check-in',{method:'POST'}),
   getChatMessages: async (roomId, seed = []) => { const messages = await request(`/chats/${roomId}`); return messages.length ? messages : seed; },
+  getChatHistory: (roomId, before) => request(`/chats/${encodeURIComponent(roomId)}?before=${encodeURIComponent(before)}`),
   saveChatMessage: (roomId, message) => request(`/chats/${roomId}`, { method: 'POST', body: JSON.stringify(message) }),
   getPremiumPlan: () => request('/premium/plan'),
   getSubscription: email => request(`/premium/subscription/${encodeURIComponent(email)}`),
@@ -37,6 +44,8 @@ export const Database = {
   markNotificationRead: id => request(`/notifications/${id}/read`, { method: 'PATCH' }),
   getMentorDocuments: (mentorEmail) => request(`/mentor-documents${mentorEmail?`?mentorEmail=${encodeURIComponent(mentorEmail)}`:''}`),
   getPublishedMentorDocuments: () => request('/mentor-documents?status=PUBLISHED&catalog=true'),
+  getDocumentActivity: () => request('/document-activity'),
+  saveDocumentActivity: (id, activity) => request(`/mentor-documents/${encodeURIComponent(id)}/activity`, {method:'PATCH',body:JSON.stringify(activity)}),
   getDocumentUnlocks: email => request(`/document-unlocks/${encodeURIComponent(email)}`),
   unlockMentorDocument: (id,email) => request(`/mentor-documents/${encodeURIComponent(id)}/unlock`,{method:'POST',body:JSON.stringify({email})}),
   getMentorDocumentAccess: (id,email) => request(`/mentor-documents/${encodeURIComponent(id)}/access?email=${encodeURIComponent(email)}`),

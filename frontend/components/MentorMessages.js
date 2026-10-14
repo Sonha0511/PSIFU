@@ -8,6 +8,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import DirectMessage from "./DirectMessage";
+import { getRoleTheme } from "../theme/roleTheme";
+const theme = getRoleTheme('mentor');
 
 export default function MentorMessages({ mentor, bookings, onBack }) {
   const [selected, setSelected] = useState(null);
@@ -37,7 +39,7 @@ export default function MentorMessages({ mentor, bookings, onBack }) {
     <ScrollView style={s.screen} contentContainerStyle={s.content}>
       <View style={s.header}>
         <TouchableOpacity onPress={onBack}>
-          <Ionicons name="arrow-back" size={22} color="#102A56" />
+          <Ionicons name="arrow-back" size={22} color={theme.text} />
         </TouchableOpacity>
         <Text style={s.title}>Mentee Chat</Text>
         <View style={{ width: 22 }} />
@@ -63,12 +65,12 @@ export default function MentorMessages({ mentor, bookings, onBack }) {
               </Text>
               <Text style={s.link}>Nhấn để trò chuyện riêng</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#71829D" />
+            <Ionicons name="chevron-forward" size={18} color={theme.textMuted} />
           </TouchableOpacity>
         ))
       ) : (
         <View style={s.empty}>
-          <Ionicons name="chatbubbles-outline" size={34} color="#71829D" />
+          <Ionicons name="chatbubbles-outline" size={34} color={theme.textMuted} />
           <Text style={s.name}>Chưa có Mentee để chat</Text>
           <Text style={s.copy}>Khi có booking, Mentee sẽ xuất hiện ở đây.</Text>
         </View>
@@ -77,7 +79,7 @@ export default function MentorMessages({ mentor, bookings, onBack }) {
   );
 }
 const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#F8FAFF" },
+  screen: { flex: 1, backgroundColor: theme.background },
   content: { padding: 16, paddingBottom: 40 },
   header: {
     height: 52,
@@ -85,13 +87,13 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  title: { fontSize: 20, fontWeight: "900", color: "#102A56" },
-  copy: { fontSize: 12, color: "#64748B", lineHeight: 18, marginTop: 4 },
+  title: { fontSize: 20, fontWeight: "900", color: theme.text },
+  copy: { fontSize: 12, color: theme.textSecondary, lineHeight: 18, marginTop: 4 },
   row: {
-    backgroundColor: "#fff",
+    backgroundColor: theme.surface,
     borderRadius: 13,
     borderWidth: 1,
-    borderColor: "#E0E8F5",
+    borderColor: theme.border,
     padding: 12,
     marginTop: 11,
     flexDirection: "row",
@@ -102,15 +104,15 @@ const s = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: "#155EEF",
+    backgroundColor: theme.primary,
     alignItems: "center",
     justifyContent: "center",
   },
   avatarText: { color: "#fff", fontWeight: "900" },
-  name: { fontSize: 14, color: "#102A56", fontWeight: "900" },
-  link: { fontSize: 12, color: "#155EEF", fontWeight: "900", marginTop: 5 },
+  name: { fontSize: 14, color: theme.text, fontWeight: "900" },
+  link: { fontSize: 12, color: theme.secondary, fontWeight: "900", marginTop: 5 },
   empty: {
-    backgroundColor: "#fff",
+    backgroundColor: theme.surface,
     borderRadius: 14,
     padding: 35,
     alignItems: "center",

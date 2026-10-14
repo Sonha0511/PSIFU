@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "migrate:atlas": "node scripts/migrate-to-atlas.js"
+    "migrate:atlas": "node scripts/migrate-to-atlas.js",
+    "seed:atlas-demo": "node scripts/seed-atlas-demo.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

@@ -12,8 +12,10 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { getRoleTheme } from "../theme/roleTheme";
+const theme=getRoleTheme('mentor');
 import * as DocumentPicker from "expo-document-picker";
-import { File } from "expo-file-system";
+import { appendUploadFile } from "../platform/uploadFile";
 import { Database } from "../data/database";
 const courses = ["PRF192", "PRO192", "DBI202", "CSD201"];
 const categories = [
@@ -84,7 +86,7 @@ export default function MentorDocuments({ mentor }) {
       file.name,
     );
     const form = new FormData();
-    form.append("file", new File(file.uri));
+    await appendUploadFile(form,file);
     form.append("api_key", String(sign.apiKey));
     form.append("timestamp", String(sign.timestamp));
     form.append("folder", sign.folder);
@@ -143,7 +145,7 @@ export default function MentorDocuments({ mentor }) {
           ...payload,
           mentorEmail: mentor.email,
           mentorName: mentor.fullName,
-          term: "Kỳ hiện tại",
+          term: mentor.currentTerm || "",
           specialty: mentor.specialty || "Mentor PSIFU",
           pages: 0,
           unlocks: 0,
@@ -406,7 +408,7 @@ function Action({ icon, text, onPress }) {
   );
 }
 const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#F8FAFF" },
+  screen: { flex: 1, backgroundColor: theme.background },
   content: { padding: 16, paddingBottom: 40 },
   header: {
     height: 52,
@@ -414,16 +416,16 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  title: { fontSize: 20, color: "#102A56", fontWeight: "900" },
+  title: { fontSize: 20, color: theme.text, fontWeight: "900" },
   rowBetween: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginTop: 8,
   },
-  copy: { fontSize: 12, color: "#64748B", lineHeight: 18, marginTop: 3 },
+  copy: { fontSize: 12, color: theme.textSecondary, lineHeight: 18, marginTop: 3 },
   add: {
-    backgroundColor: "#155EEF",
+    backgroundColor: theme.primary,
     paddingHorizontal: 11,
     paddingVertical: 8,
     borderRadius: 8,
@@ -432,19 +434,19 @@ const s = StyleSheet.create({
   filters: { flexDirection: "row", gap: 7, marginTop: 13 },
   chips: { flexDirection: "row", gap: 7, flexWrap: "wrap" },
   chip: {
-    backgroundColor: "#EEF2F8",
+    backgroundColor: theme.surfaceMuted,
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 8,
   },
-  chipOn: { backgroundColor: "#155EEF" },
-  chipText: { fontSize: 11, color: "#40536F", fontWeight: "800" },
+  chipOn: { backgroundColor: theme.primary },
+  chipText: { fontSize: 11, color: theme.textSecondary, fontWeight: "800" },
   chipTextOn: { color: "#fff" },
   card: {
-    backgroundColor: "#fff",
+    backgroundColor: theme.surface,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#E0E8F5",
+    borderColor: theme.border,
     padding: 12,
     marginTop: 10,
   },
@@ -457,10 +459,10 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  course: { fontSize: 11, color: "#155EEF", fontWeight: "900" },
+  course: { fontSize: 11, color: theme.secondary, fontWeight: "900" },
   cardTitle: {
     fontSize: 14,
-    color: "#102A56",
+    color: theme.text,
     fontWeight: "900",
     marginTop: 3,
   },
@@ -469,22 +471,22 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     marginTop: 10,
     padding: 8,
-    backgroundColor: "#F5F7FC",
+    backgroundColor: theme.surfaceMuted,
     borderRadius: 8,
   },
-  stat: { fontSize: 11, color: "#536E99", fontWeight: "800" },
+  stat: { fontSize: 11, color: theme.textSecondary, fontWeight: "800" },
   actions: { flexDirection: "row", gap: 7, marginTop: 10 },
   action: {
     flex: 1,
     height: 40,
     borderRadius: 8,
-    backgroundColor: "#EEF3FF",
+    backgroundColor: theme.tint,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
     gap: 4,
   },
-  actionText: { fontSize: 11, color: "#155EEF", fontWeight: "900" },
+  actionText: { fontSize: 11, color: theme.secondary, fontWeight: "900" },
   delete: {
     width: 34,
     height: 40,
@@ -504,26 +506,26 @@ const s = StyleSheet.create({
   },
   label: {
     fontSize: 12,
-    color: "#102A56",
+    color: theme.text,
     fontWeight: "900",
     marginTop: 16,
     marginBottom: 7,
   },
   input: {
     height: 48,
-    backgroundColor: "#fff",
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: "#E0E8F5",
+    borderColor: theme.border,
     borderRadius: 10,
     paddingHorizontal: 11,
-    color: "#102A56",
+    color: theme.text,
     fontSize: 14,
   },
   bio: { height: 90, textAlignVertical: "top", paddingTop: 10 },
   file: {
-    backgroundColor: "#fff",
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: "#E0E8F5",
+    borderColor: theme.border,
     borderRadius: 11,
     padding: 12,
     flexDirection: "row",
@@ -533,7 +535,7 @@ const s = StyleSheet.create({
   primary: {
     minHeight: 50,
     borderRadius: 11,
-    backgroundColor: "#155EEF",
+    backgroundColor: theme.primary,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 20,

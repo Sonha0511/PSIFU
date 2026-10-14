@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import {
   Alert,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,8 +12,10 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { getRoleTheme } from "../theme/roleTheme";
+const theme=getRoleTheme('mentor');
 import * as ImagePicker from "expo-image-picker";
-import { File } from "expo-file-system";
+import { appendUploadFile } from "../platform/uploadFile";
 import { Database } from "../data/database";
 import MentorWallet from "./MentorWallet";
 
@@ -25,7 +29,7 @@ const initials = (name) =>
     .join("")
     .toUpperCase();
 
-export default function MentorProfileHub({ user, onUpdate, onLogout }) {
+export default function MentorProfileHub({ user, onUpdate, onLogout, onChangePassword, onNotifications }) {
   const [page, setPage] = useState("profile");
   const [name, setName] = useState(user?.fullName || "");
   const [bio, setBio] = useState(user?.mentorBio || "");
@@ -34,6 +38,7 @@ export default function MentorProfileHub({ user, onUpdate, onLogout }) {
   );
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || "");
   const [saving, setSaving] = useState(false);
+  const [courseInput,setCourseInput]=useState("");
   useEffect(() => {
     setName(user?.fullName || "");
     setBio(user?.mentorBio || "");
@@ -66,7 +71,7 @@ export default function MentorProfileHub({ user, onUpdate, onLogout }) {
       const asset = result.assets[0];
       const signature = await Database.getAvatarUploadSignature();
       const form = new FormData();
-      form.append("file", new File(asset.uri));
+      await appendUploadFile(form,asset);
       form.append("api_key", String(signature.apiKey));
       form.append("timestamp", String(signature.timestamp));
       form.append("folder", signature.folder);
@@ -95,6 +100,7 @@ export default function MentorProfileHub({ user, onUpdate, onLogout }) {
         "Họ và tên cần có ít nhất 2 ký tự.",
       );
     setSaving(true);
+    try {
     const ok = await onUpdate?.({
       ...user,
       fullName: name.trim(),
@@ -110,9 +116,11 @@ export default function MentorProfileHub({ user, onUpdate, onLogout }) {
       );
     Alert.alert("Đã lưu hồ sơ", "Thông tin mentor đã được cập nhật.");
     setPage("profile");
+    } catch(error) { Alert.alert("Chưa lưu được hồ sơ",error.message || "Vui lòng thử lại."); } finally { setSaving(false); }
   };
   if (page === "edit")
     return (
+      <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'android' ? 'height' : undefined}>
       <ScrollView
         style={s.screen}
         contentContainerStyle={s.content}
@@ -158,8 +166,10 @@ export default function MentorProfileHub({ user, onUpdate, onLogout }) {
         />
         <Text style={s.counter}>{bio.length}/300 ký tự</Text>
         <Label text="Môn học bạn hỗ trợ" />
+        <TextInput style={s.input} value={courseInput} onChangeText={setCourseInput} placeholder="Mã môn khác, ví dụ MKT101" autoCapitalize="characters"/>
+        <TouchableOpacity onPress={()=>{const code=courseInput.trim().toUpperCase();if(!/^[A-Z0-9_-]{2,20}$/.test(code))return Alert.alert('Mã môn không hợp lệ');setCourses(previous=>[...new Set([...previous,code])]);setCourseInput('')}}><Text style={s.copy}>＋ Thêm môn học</Text></TouchableOpacity>
         <View style={s.courseList}>
-          {COURSE_OPTIONS.map((course) => (
+          {[...new Set([...COURSE_OPTIONS,...courses])].map((course) => (
             <TouchableOpacity
               key={course}
               style={[s.course, courses.includes(course) && s.courseOn]}
@@ -202,6 +212,7 @@ export default function MentorProfileHub({ user, onUpdate, onLogout }) {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+      </KeyboardAvoidingView>
     );
   return (
     <ScrollView style={s.screen} contentContainerStyle={s.content}>
@@ -264,16 +275,12 @@ export default function MentorProfileHub({ user, onUpdate, onLogout }) {
         />
       </Section>
       <Section title="Tài khoản">
+        <Row icon="key-outline" title="Đổi mật khẩu" sub="Bảo mật tài khoản" onPress={onChangePassword}/>
         <Row
           icon="notifications-outline"
           title="Thông báo"
-          sub="Mở cài đặt thông báo trong hồ sơ"
-          onPress={() =>
-            Alert.alert(
-              "Thông báo",
-              "Cài đặt thông báo đang dùng theo tuỳ chọn của tài khoản.",
-            )
-          }
+          sub="Xem thông báo của tài khoản"
+          onPress={onNotifications}
         />
         <Row
           icon="log-out-outline"
@@ -340,7 +347,7 @@ function Row({ icon, title, sub, onPress, danger }) {
   );
 }
 const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#F8FAFF" },
+  screen: { flex: 1, backgroundColor: theme.background },
   content: { padding: 16, paddingBottom: 40 },
   top: {
     height: 52,
@@ -348,14 +355,14 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  topTitle: { color: "#102A56", fontSize: 20, fontWeight: "900" },
+  topTitle: { color: theme.text, fontSize: 20, fontWeight: "900" },
   profileHero: {
     alignItems: "center",
     padding: 18,
-    backgroundColor: "#fff",
+    backgroundColor: theme.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#E0E8F5",
+    borderColor: theme.border,
   },
   avatar: {
     width: 38,
@@ -375,12 +382,12 @@ const s = StyleSheet.create({
   },
   avatarInitial: { color: "#fff", fontSize: 13, fontWeight: "900" },
   avatarInitialLarge: { color: "#fff", fontSize: 27, fontWeight: "900" },
-  name: { color: "#102A56", fontSize: 20, fontWeight: "900", marginTop: 10 },
-  verified: { color: "#155EEF", fontSize: 11, fontWeight: "900", marginTop: 4 },
-  copy: { color: "#64748B", fontSize: 12, lineHeight: 18, marginTop: 3 },
+  name: { color: theme.text, fontSize: 20, fontWeight: "900", marginTop: 10 },
+  verified: { color: theme.secondary, fontSize: 11, fontWeight: "900", marginTop: 4 },
+  copy: { color: theme.textSecondary, fontSize: 12, lineHeight: 18, marginTop: 3 },
   editButton: {
     marginTop: 13,
-    backgroundColor: "#EAF1FF",
+    backgroundColor: theme.tint,
     paddingHorizontal: 13,
     paddingVertical: 9,
     borderRadius: 9,
@@ -388,22 +395,22 @@ const s = StyleSheet.create({
     gap: 6,
     alignItems: "center",
   },
-  editButtonText: { color: "#155EEF", fontSize: 12, fontWeight: "900" },
+  editButtonText: { color: theme.secondary, fontSize: 12, fontWeight: "900" },
   section: { marginTop: 17 },
   sectionTitle: {
     fontSize: 16,
-    color: "#102A56",
+    color: theme.text,
     fontWeight: "900",
     marginBottom: 8,
   },
   sectionBody: {
-    backgroundColor: "#fff",
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: "#E0E8F5",
+    borderColor: theme.border,
     borderRadius: 14,
     padding: 12,
   },
-  profileBio: { fontSize: 12, color: "#364A69", lineHeight: 19 },
+  profileBio: { fontSize: 12, color: theme.textSecondary, lineHeight: 19 },
   course: {
     minHeight: 48,
     flexDirection: "row",
@@ -414,7 +421,7 @@ const s = StyleSheet.create({
     paddingVertical: 9,
   },
   courseOn: { backgroundColor: "#EEF3FF" },
-  courseCode: { color: "#102A56", fontSize: 12, fontWeight: "900" },
+  courseCode: { color: theme.text, fontSize: 12, fontWeight: "900" },
   adminFee: {
     padding: 12,
     backgroundColor: "#EEF3FF",
@@ -423,7 +430,7 @@ const s = StyleSheet.create({
     gap: 9,
     alignItems: "flex-start",
   },
-  feeTitle: { color: "#102A56", fontSize: 13, fontWeight: "900" },
+  feeTitle: { color: theme.text, fontSize: 13, fontWeight: "900" },
   row: {
     minHeight: 60,
     flexDirection: "row",
@@ -441,7 +448,7 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   rowIconDanger: { backgroundColor: "#FEE4E2" },
-  rowTitle: { color: "#102A56", fontSize: 13, fontWeight: "900" },
+  rowTitle: { color: theme.text, fontSize: 13, fontWeight: "900" },
   dangerText: { color: "#D92D20" },
   avatarEdit: { alignSelf: "center", marginTop: 14, position: "relative" },
   camera: {
@@ -466,27 +473,27 @@ const s = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    color: "#102A56",
+    color: theme.text,
     fontWeight: "900",
     marginTop: 19,
     marginBottom: 5,
   },
   labelSmall: {
     fontSize: 12,
-    color: "#102A56",
+    color: theme.text,
     fontWeight: "800",
     marginTop: 12,
     marginBottom: 5,
   },
   input: {
     height: 48,
-    backgroundColor: "#fff",
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: "#E0E8F5",
+    borderColor: theme.border,
     borderRadius: 10,
     paddingHorizontal: 12,
     fontSize: 14,
-    color: "#102A56",
+    color: theme.text,
   },
   readonly: {
     height: 48,
@@ -510,15 +517,15 @@ const s = StyleSheet.create({
     marginTop: 4,
   },
   courseList: {
-    backgroundColor: "#fff",
+    backgroundColor: theme.surface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#E0E8F5",
+    borderColor: theme.border,
     paddingHorizontal: 12,
   },
   primary: {
     minHeight: 50,
-    backgroundColor: "#155EEF",
+    backgroundColor: theme.primary,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",

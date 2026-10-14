@@ -12,6 +12,9 @@ frontend/web-preview/
 frontend/web-preview-check/
 frontend/ui-check/
 frontend/ui-check-2/
+frontend/dist-audit-fixes/
+frontend/dist-web-preview/
+frontend/dist-web-app/
 expo-env.d.ts
 
 # Native

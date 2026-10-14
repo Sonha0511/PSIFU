@@ -1,6 +1,7 @@
 import { registerRootComponent } from 'expo';
+import './theme/installRoleTheming';
 
-import App from './App';
+import App from './AppRoot';
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);
 // It also ensures that whether you load the app in Expo Go or in a native build,
