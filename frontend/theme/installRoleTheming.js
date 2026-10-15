@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { getActiveRole, getRoleTheme, sharedTheme } from './roleTheme';
+import { getActiveAppearance, getActiveRole, getRoleTheme, sharedTheme } from './roleTheme';
 
 const originalCreate = StyleSheet.create.bind(StyleSheet);
 const semantic = {
@@ -28,11 +28,23 @@ const semanticColor = (value,theme) => {
   if(semantic.error.has(key))return sharedTheme.error;
   return null;
 };
+const hashStyle = value => String(value || '').split('').reduce((total,char)=>((total*31)+char.charCodeAt(0))>>>0,0);
+const paletteColor = (styleName,theme) => {
+  const name=String(styleName||'').toLowerCase();
+  if(/wallet|coin|xu|reward|premium|price|fee|star/.test(name))return theme.reward;
+  if(/success|online|verified|complete|check/.test(name))return sharedTheme.success;
+  if(/chat|community|message|people/.test(name))return theme.accent;
+  if(/mentor|course|document|school|learn/.test(name))return theme.palette[4];
+  if(/profile|avatar|user|account/.test(name))return theme.secondary;
+  return theme.palette[hashStyle(name)%theme.palette.length];
+};
+const softColor = (styleName,theme) => theme.soft[hashStyle(styleName)%theme.soft.length];
 const themedColor = (value, property, styleName, theme) => {
   if(typeof value!=='string')return value;
   const meaning=semanticColor(value,theme); if(meaning)return meaning;
   if(value.startsWith('rgba')||value.startsWith('hsla')) {
     if(property==='borderColor'||property.endsWith('BorderColor'))return theme.border;
+    if(property==='backgroundColor'&&theme.appearance==='light'&&!/glow|sparkle|overlay|backdrop|shadow/.test(String(styleName).toLowerCase()))return softColor(styleName,theme);
     return value;
   }
   const c=classify(value); if(!c)return value;
@@ -42,19 +54,17 @@ const themedColor = (value, property, styleName, theme) => {
   if(property==='backgroundColor') {
     if(root&&(c.light>.72||c.light<.24))return theme.background;
     if(c.light>.94)return theme.surface;
-    if(c.light>.82)return c.blue||c.purple?theme.tint:theme.surfaceMuted;
+    if(c.light>.82)return c.blue||c.purple?softColor(styleName,theme):theme.surfaceMuted;
     if(c.light<.2)return root?theme.background:theme.surface;
-    if(c.blue)return theme.primary;
-    if(c.purple)return theme.secondary;
+    if(c.blue||c.purple)return paletteColor(styleName,theme);
     if(c.warm)return theme.reward;
     return theme.surfaceElevated;
   }
   if(property==='color'||property.endsWith('Color')) {
-    if(c.light>.9)return sharedTheme.white;
+    if(c.light>.9)return /button|btn|primary|active|selected|submit|book|join|claim|avatar|badge|on|save|login|register/i.test(styleName)?sharedTheme.white:theme.text;
     if(c.light<.25&&c.sat<.75)return theme.text;
     if(c.sat<.24)return theme.textSecondary;
-    if(c.blue)return theme.primary;
-    if(c.purple)return theme.secondary;
+    if(c.blue||c.purple)return paletteColor(styleName,theme);
     if(c.warm)return theme.reward;
     return theme.textSecondary;
   }
@@ -64,6 +74,18 @@ const transformStyle = (style,styleName,theme) => {
   if(!style||typeof style!=='object'||Array.isArray(style))return style;
   const next={...style};
   for(const property of Object.keys(next))next[property]=themedColor(next[property],property,styleName,theme);
+  const name=String(styleName||'').toLowerCase();
+  const interactive=/btn|button|submit|primary|active|selected|book|join|claim|topup|login|register/.test(name);
+  const card=/card|panel|section|tile|group|modal|sheet|wallet|hero/.test(name)&&!/content|row|title|text|label|header/.test(name);
+  const badge=/badge|tag|chip|pill|status|role/.test(name)&&!/text|label/.test(name);
+  if(interactive&&next.backgroundColor&&next.backgroundColor!==theme.surface){
+    next.shadowColor=paletteColor(styleName,theme);next.shadowOpacity=.22;next.shadowRadius=Math.max(Number(next.shadowRadius)||0,7);next.elevation=Math.max(Number(next.elevation)||0,3);
+  }
+  if(card&&next.backgroundColor){
+    next.shadowColor=theme.glow;next.shadowOpacity=theme.appearance==='dark'?.10:.07;next.shadowRadius=Math.max(Number(next.shadowRadius)||0,10);next.elevation=Math.max(Number(next.elevation)||0,2);
+    if(next.borderWidth===undefined){next.borderWidth=1;next.borderColor=theme.border;}
+  }
+  if(badge&&next.backgroundColor&&next.backgroundColor!==theme.surface){next.shadowColor=paletteColor(styleName,theme);next.shadowOpacity=.16;next.shadowRadius=4;}
   return next;
 };
 
@@ -71,11 +93,11 @@ const transformStyle = (style,styleName,theme) => {
 // Delay StyleSheet compilation until a style is read so the same component can render
 // Aurora for a mentee and Midnight for a mentor without duplicating every screen.
 StyleSheet.create = styles => {
-  const cache={mentee:new Map(),mentor:new Map()};
+  const cache={'mentee:light':new Map(),'mentee:dark':new Map(),'mentor:light':new Map(),'mentor:dark':new Map()};
   return new Proxy(styles,{
     get(target,property){
       if(typeof property!=='string'||!(property in target))return target[property];
-      const role=getActiveRole(); const roleCache=cache[role];
+      const role=getActiveRole(),appearance=getActiveAppearance(); const roleCache=cache[`${role}:${appearance}`];
       if(!roleCache.has(property)){
         const theme=getRoleTheme(role);
         roleCache.set(property,originalCreate({value:transformStyle(target[property],property,theme)}).value);

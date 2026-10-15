@@ -15,6 +15,7 @@ frontend/ui-check-2/
 frontend/dist-audit-fixes/
 frontend/dist-web-preview/
 frontend/dist-web-app/
+release-artifacts/
 expo-env.d.ts
 
 # Native

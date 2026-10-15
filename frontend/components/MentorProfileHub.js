@@ -18,6 +18,7 @@ import * as ImagePicker from "expo-image-picker";
 import { appendUploadFile } from "../platform/uploadFile";
 import { Database } from "../data/database";
 import MentorWallet from "./MentorWallet";
+import AppearanceControl from "./AppearanceControl";
 
 const COURSE_OPTIONS = ["PRF192", "PRO192", "CSD201", "DBI202"];
 const initials = (name) =>
@@ -29,7 +30,7 @@ const initials = (name) =>
     .join("")
     .toUpperCase();
 
-export default function MentorProfileHub({ user, onUpdate, onLogout, onChangePassword, onNotifications }) {
+export default function MentorProfileHub({ user, appearanceMode = "system", onAppearanceChange, onUpdate, onLogout, onChangePassword, onNotifications }) {
   const [page, setPage] = useState("profile");
   const [name, setName] = useState(user?.fullName || "");
   const [bio, setBio] = useState(user?.mentorBio || "");
@@ -289,6 +290,9 @@ export default function MentorProfileHub({ user, onUpdate, onLogout, onChangePas
           danger
           onPress={onLogout}
         />
+      </Section>
+      <Section title="Giao diện">
+        <AppearanceControl value={appearanceMode} onChange={onAppearanceChange} role="mentor" />
       </Section>
     </ScrollView>
   );

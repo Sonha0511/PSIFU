@@ -31,6 +31,10 @@ test('PayOS QR is rendered inside the app without opening an external checkout',
   const source = read('components/PayOSPayment.js');
   assert.match(source, /from 'react-native-qrcode-svg'/);
   assert.match(source, /<QRCode value=\{order\.qrCode\}/);
+  assert.match(source, /quietZone=\{20\}/);
+  assert.match(source, /ecl="L"/);
+  assert.match(source, /\^000201/);
+  assert.match(source, /6304\[0-9A-F\]/);
   assert.doesNotMatch(source, /Linking\.openURL|checkoutUrl|api\.qrserver\.com/);
 });
 

@@ -169,6 +169,7 @@ const mailer = process.env.SMTP_HOST ? nodemailer.createTransport({ host: proces
 const hashOtp = code => crypto.createHash('sha256').update(code).digest('hex');
 const sendEmail = async ({to,subject,text,html}) => { if(process.env.RESEND_API_KEY){ const response=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:`Bearer ${process.env.RESEND_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({from:process.env.RESEND_FROM||'PSIFU <onboarding@resend.dev>',to:[to],subject,text,html})}); const result=await response.json().catch(()=>({})); if(!response.ok)throw new Error(result.message||result.name||'Resend không thể gửi email.'); return result; } if(!mailer)throw new Error('Chưa cấu hình RESEND_API_KEY hoặc SMTP.'); return mailer.sendMail({from:process.env.SMTP_FROM||process.env.SMTP_USER,to,subject,text,html}); };
 const payosConfigured = () => Boolean(process.env.PAYOS_CLIENT_ID && process.env.PAYOS_API_KEY && process.env.PAYOS_CHECKSUM_KEY && process.env.PAYOS_RETURN_URL && process.env.PAYOS_CANCEL_URL);
+const bankNameFromBin = bin => ({'970415':'VietinBank','970436':'Vietcombank','970418':'BIDV','970405':'Agribank','970422':'MB Bank','970407':'Techcombank','970432':'VPBank','970423':'TPBank','970416':'ACB','970403':'Sacombank','970441':'VIB','970443':'SHB','970431':'Eximbank','970448':'OCB','970454':'VietCapital Bank','970449':'LienVietPostBank','970426':'MSB','970437':'HDBank','970400':'SaigonBank','970429':'SCB'}[String(bin||'')] || 'Ngân hàng liên kết PayOS');
 const cloudinaryConfigured = () => Boolean(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET);
 const cloudinarySignature = params => crypto.createHash('sha1').update(`${Object.keys(params).sort().map(key=>`${key}=${params[key]}`).join('&')}${process.env.CLOUDINARY_API_SECRET}`).digest('hex');
 const payosSignature = data => crypto.createHmac('sha256', process.env.PAYOS_CHECKSUM_KEY || '').update(Object.keys(data || {}).sort().filter(key => data[key] !== undefined && data[key] !== null).map(key => `${key}=${data[key]}`).join('&')).digest('hex');
@@ -184,6 +185,38 @@ const payosRequest = async (path, options = {}) => {
     if (error.name === 'AbortError') throw new Error('PayOS chưa phản hồi kịp. Nếu đã chuyển khoản, hãy kiểm tra trạng thái trước khi thử lại.');
     throw error;
   } finally { clearTimeout(timeout); }
+};
+const settlePayosTopup = async ({orderCode, amount, reference}) => {
+  const session=await mongoose.startSession();
+  try {
+    let settled=false;
+    await session.withTransaction(async()=>{
+      const order=await PaymentOrder.findOne({orderCode:Number(orderCode)}).session(session);
+      if(!order)throw new Error('Đơn thanh toán chưa sẵn sàng.');
+      if(order.status==='PAID')return;
+      if(order.amount!==Number(amount))throw new Error('Số tiền PayOS không khớp đơn hàng.');
+      if(order.status!=='PENDING')throw new Error('Trạng thái đơn không hợp lệ.');
+      order.status='PAID';order.reference=String(reference||'');order.paidAt=new Date();
+      await order.save({session});
+      const user=await User.findOneAndUpdate({email:order.userEmail},{$inc:{userXu:order.coins}},{new:true,session});
+      if(!user)throw new Error('Không tìm thấy ví.');
+      await Transaction.create([{userEmail:user.email,type:'PAYOS_TOPUP',amount:order.coins,status:'SUCCESS',metadata:{orderCode:order.orderCode,amountVnd:order.amount,reference:order.reference}}],{session});
+      await Notification.create([{userEmail:user.email,title:'Nạp Xu thành công',body:`PayOS đã xác nhận đơn #${order.orderCode}. ${order.coins} Xu đã được cộng vào ví.`,type:'WALLET'}],{session});
+      settled=true;
+    });
+    return settled;
+  } finally { await session.endSession(); }
+};
+const reconcilePayosOrder = async order => {
+  if(!order||order.status!=='PENDING'||!payosConfigured())return order;
+  const payment=await payosRequest(`/v2/payment-requests/${encodeURIComponent(order.orderCode)}`);
+  if(payment.status==='PAID'){
+    const transaction=Array.isArray(payment.transactions)?payment.transactions.find(item=>Number(item.amount)===order.amount):null;
+    await settlePayosTopup({orderCode:order.orderCode,amount:payment.amountPaid||payment.amount||order.amount,reference:transaction?.reference||payment.id});
+  }else if(['CANCELLED','EXPIRED'].includes(payment.status)){
+    await PaymentOrder.updateOne({_id:order._id,status:'PENDING'},{$set:{status:payment.status}});
+  }
+  return PaymentOrder.findById(order._id);
 };
 const nextPayosOrderCode = async () => { for(let attempts=0;attempts<8;attempts+=1){ const code=Number(`${Date.now().toString().slice(-8)}${crypto.randomInt(10,100)}`); if(!await PaymentOrder.exists({orderCode:code})) return code; } throw new Error('Không thể tạo mã đơn thanh toán.'); };
 const issueOtp = async (user, purpose) => { const code = crypto.randomInt(100000, 1000000).toString(); const title=purpose === 'verify-email' ? 'Xác minh email' : 'Đặt lại mật khẩu'; user.otpHash = hashOtp(code); user.otpPurpose = purpose; user.otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); await user.save(); await sendEmail({to:user.email,subject:`PSIFU – ${title}`,text:`Mã OTP PSIFU của bạn là: ${code}. Mã có hiệu lực trong 10 phút. Không chia sẻ mã này cho bất kỳ ai.`,html:`<div style="font-family:Arial,sans-serif;background:#f4f7ff;padding:32px;color:#152a4d"><div style="max-width:520px;margin:auto;background:#fff;border-radius:16px;padding:30px"><div style="font-size:22px;font-weight:800;color:#155eef">PSIFU</div><h2>${title}</h2><p>Xin chào ${user.fullName || 'bạn'},</p><p>Dùng mã OTP dưới đây để tiếp tục. Mã có hiệu lực trong <b>10 phút</b>.</p><div style="font-size:32px;letter-spacing:8px;font-weight:800;color:#155eef;background:#eef3ff;padding:18px;border-radius:12px;text-align:center">${code}</div><p style="font-size:13px;color:#64748b;margin-top:24px">Không chia sẻ mã này cho bất kỳ ai, kể cả người tự xưng là PSIFU.</p></div></div>`}); };
@@ -271,7 +304,7 @@ app.post('/api/auth/password/change',requireAuth,authLimiter,async(req,res)=>{
     res.json({success:true,accessToken:makeToken(user),msg:'Đã đổi mật khẩu. Các phiên đăng nhập khác đã hết hiệu lực.'});
   } catch(error) { if(error.status)return res.status(error.status).json({success:false,msg:error.message});throw error; }
 });
-app.get('/api/auth/me',requireAuth,async(req,res)=>{const user=await User.findById(req.auth.sub);if(!user)return res.status(401).json({success:false});res.json({success:true,user:toClient(user)});});
+app.get('/api/auth/me',requireAuth,async(req,res)=>{let user=await User.findById(req.auth.sub);if(!user)return res.status(401).json({success:false});const pending=await PaymentOrder.find({userEmail:req.auth.email,status:'PENDING'}).sort({createdAt:-1}).limit(5);const results=await Promise.allSettled(pending.map(reconcilePayosOrder));for(const result of results)if(result.status==='rejected')console.error('PayOS account reconciliation:',result.reason?.message);if(pending.length)user=await User.findById(req.auth.sub);res.json({success:true,user:toClient(user)});});
 app.post('/api/wallet/daily-check-in',requireAuth,async(req,res)=>{
   const session=await mongoose.startSession();let user;
   try {
@@ -329,32 +362,25 @@ app.get('/api/users/:email/settings', async (req,res) => { const user=await User
 app.patch('/api/users/:email/settings',requireAuth,requireSelfOrAdmin(),async(req,res)=>{const allowed={};if(req.body.notificationPreferences&&typeof req.body.notificationPreferences==='object')allowed.notificationPreferences=req.body.notificationPreferences;if(req.body.mentorAvailability&&typeof req.body.mentorAvailability==='object')allowed.mentorAvailability=req.body.mentorAvailability;const user=await User.findOneAndUpdate({email:req.params.email.toLowerCase()},{$set:allowed},{new:true});if(!user)return res.status(404).json({success:false});res.json({success:true,notificationPreferences:user.notificationPreferences,mentorAvailability:user.mentorAvailability});});
 app.post('/api/uploads/cloudinary-signature',requireAuth,async(req,res)=>{const email=req.auth.email;if(cleanEmail(req.body.email)!==email)return res.status(403).json({success:false,msg:'Bạn chỉ được tải tài liệu cho chính mình.'});const user=await User.findOne({email});if(!user||user.role!=='mentor')return res.status(403).json({success:false,msg:'Chỉ Mentor được tải tài liệu lên.'});if(!cloudinaryConfigured())return res.status(503).json({success:false,msg:'Cloudinary chưa được cấu hình trên máy chủ.'});const fileName=String(req.body.fileName||'document.pdf');if(!fileName.toLowerCase().endsWith('.pdf'))return res.status(400).json({success:false,msg:'PSIFU chỉ hỗ trợ tệp PDF.'});const timestamp=Math.floor(Date.now()/1000);const safeEmail=email.replace(/[^a-z0-9]/gi,'_');const params={folder:`psifu/mentor-documents/${safeEmail}`,public_id:`doc_${timestamp}_${crypto.randomUUID().slice(0,8)}`,timestamp};res.json({success:true,cloudName:process.env.CLOUDINARY_CLOUD_NAME,apiKey:process.env.CLOUDINARY_API_KEY,timestamp,folder:params.folder,publicId:params.public_id,signature:cloudinarySignature(params)});});
 app.post('/api/uploads/avatar-signature',requireAuth,async(req,res)=>{if(!cloudinaryConfigured())return res.status(503).json({success:false,msg:'Cloudinary chưa được cấu hình trên máy chủ.'});const timestamp=Math.floor(Date.now()/1000);const safeEmail=req.auth.email.replace(/[^a-z0-9]/gi,'_');const params={folder:'psifu/avatars',public_id:`avatar_${safeEmail}`,overwrite:true,timestamp};res.json({success:true,cloudName:process.env.CLOUDINARY_CLOUD_NAME,apiKey:process.env.CLOUDINARY_API_KEY,timestamp,folder:params.folder,publicId:params.public_id,signature:cloudinarySignature(params)});});
-app.post('/api/payments/payos/topups',requireAuth, async (req,res) => { const email=req.auth.email; const coins=Number(req.body.coins); const packages=[50,100,200,500]; if(cleanEmail(req.body.email)!==email||!packages.includes(coins)) return res.status(400).json({success:false,msg:'Gói nạp không hợp lệ.'}); if(!payosConfigured()) return res.status(503).json({success:false,msg:'PayOS chưa được cấu hình trên máy chủ. Hãy thêm PAYOS_CLIENT_ID, PAYOS_API_KEY, PAYOS_CHECKSUM_KEY, PAYOS_RETURN_URL và PAYOS_CANCEL_URL.'}); const user=await User.findOne({email}); if(!user) return res.status(404).json({success:false,msg:'Không tìm thấy tài khoản.'}); try { const orderCode=await nextPayosOrderCode(); const amount=coins*1000; const requestData={orderCode,amount,description:`PSIFU ${coins} Xu`,returnUrl:process.env.PAYOS_RETURN_URL,cancelUrl:process.env.PAYOS_CANCEL_URL,items:[{name:`PSIFU ${coins} Xu`,quantity:1,price:amount}]}; requestData.signature=payosSignature({orderCode,amount,description:requestData.description,returnUrl:requestData.returnUrl,cancelUrl:requestData.cancelUrl}); const order=await PaymentOrder.create({orderCode,userEmail:email,coins,amount}); const payment=await payosRequest('/v2/payment-requests',{method:'POST',body:JSON.stringify(requestData)}); await PaymentOrder.updateOne({_id:order._id},{$set:{paymentLinkId:payment.paymentLinkId,checkoutUrl:payment.checkoutUrl}}); order.checkoutUrl=payment.checkoutUrl; await AuditLog.create({actorEmail:email,action:'PAYOS_TOPUP_CREATED',targetType:'PaymentOrder',targetId:String(order.orderCode),metadata:{coins,amount}}); res.status(201).json({success:true,orderCode:order.orderCode,checkoutUrl:order.checkoutUrl,qrCode:payment.qrCode,amount:order.amount,status:order.status}); } catch(error){ console.error('PayOS create payment link:',error.message); res.status(502).json({success:false,msg:error.message||'Không thể tạo liên kết PayOS.'}); } });
-app.get('/api/payments/payos/orders/:orderCode',requireAuth, async (req,res) => { const order=await PaymentOrder.findOne({orderCode:Number(req.params.orderCode)}); if(!order|| (order.userEmail!==req.auth.email&&req.auth.role!=='admin')) return res.status(404).json({success:false,msg:'Không tìm thấy đơn thanh toán.'}); res.json({success:true,orderCode:order.orderCode,status:order.status,coins:order.coins,amount:order.amount,userXu:order.status==='PAID'?(await User.findOne({email:order.userEmail}).select('userXu'))?.userXu:undefined}); });
+app.post('/api/payments/payos/topups',requireAuth, async (req,res) => { const email=req.auth.email; const coins=Number(req.body.coins); const packages=[50,100,200,500]; if(cleanEmail(req.body.email)!==email||!packages.includes(coins)) return res.status(400).json({success:false,msg:'Gói nạp không hợp lệ.'}); if(!payosConfigured()) return res.status(503).json({success:false,msg:'PayOS chưa được cấu hình trên máy chủ. Hãy thêm PAYOS_CLIENT_ID, PAYOS_API_KEY, PAYOS_CHECKSUM_KEY, PAYOS_RETURN_URL và PAYOS_CANCEL_URL.'}); const user=await User.findOne({email}); if(!user) return res.status(404).json({success:false,msg:'Không tìm thấy tài khoản.'}); try { const orderCode=await nextPayosOrderCode(); const amount=coins*1000; const requestData={orderCode,amount,description:`PSIFU ${coins} Xu`,returnUrl:process.env.PAYOS_RETURN_URL,cancelUrl:process.env.PAYOS_CANCEL_URL,items:[{name:`PSIFU ${coins} Xu`,quantity:1,price:amount}]}; requestData.signature=payosSignature({orderCode,amount,description:requestData.description,returnUrl:requestData.returnUrl,cancelUrl:requestData.cancelUrl}); const order=await PaymentOrder.create({orderCode,userEmail:email,coins,amount}); const payment=await payosRequest('/v2/payment-requests',{method:'POST',body:JSON.stringify(requestData)}); await PaymentOrder.updateOne({_id:order._id},{$set:{paymentLinkId:payment.paymentLinkId,checkoutUrl:payment.checkoutUrl}}); order.checkoutUrl=payment.checkoutUrl; await AuditLog.create({actorEmail:email,action:'PAYOS_TOPUP_CREATED',targetType:'PaymentOrder',targetId:String(order.orderCode),metadata:{coins,amount}}); res.status(201).json({success:true,orderCode:order.orderCode,checkoutUrl:order.checkoutUrl,qrCode:payment.qrCode,amount:order.amount,status:order.status,bankBin:String(payment.bin||''),bankName:String(payment.bankName||payment.bankShortName||bankNameFromBin(payment.bin)),accountNumber:String(payment.accountNumber||''),accountName:String(payment.accountName||''),transferDescription:String(payment.description||requestData.description)}); } catch(error){ console.error('PayOS create payment link:',error.message); res.status(502).json({success:false,msg:error.message||'Không thể tạo liên kết PayOS.'}); } });
+app.get('/api/payments/payos/orders/:orderCode',requireAuth, async (req,res) => {
+  let order=await PaymentOrder.findOne({orderCode:Number(req.params.orderCode)});
+  if(!order||(order.userEmail!==req.auth.email&&req.auth.role!=='admin'))return res.status(404).json({success:false,msg:'Không tìm thấy đơn thanh toán.'});
+  if(order.status==='PENDING'&&payosConfigured()){
+    try{order=await reconcilePayosOrder(order);}catch(error){console.error('PayOS order reconciliation:',error.message);}
+  }
+  const userXu=order.status==='PAID'?(await User.findOne({email:order.userEmail}).select('userXu'))?.userXu:undefined;
+  res.json({success:true,orderCode:order.orderCode,status:order.status,coins:order.coins,amount:order.amount,userXu});
+});
 app.post('/api/payments/payos/webhook', async (req,res) => {
   const payload=req.body||{}, expected=payosSignature(payload.data||{}), received=String(payload.signature||'');
   const expectedBytes=Buffer.from(expected), receivedBytes=Buffer.from(received);
   if (!received || expectedBytes.length!==receivedBytes.length || !crypto.timingSafeEqual(expectedBytes,receivedBytes)) return res.status(400).json({success:false,msg:'Webhook signature không hợp lệ.'});
   if (payload.code!=='00' || payload.success!==true || payload.data?.code!=='00') return res.json({success:true,ignored:true});
-  const session=await mongoose.startSession();
   try {
-    await session.withTransaction(async()=>{
-      const order=await PaymentOrder.findOne({orderCode:Number(payload.data.orderCode)}).session(session);
-      // Ask PayOS to retry if creation has not yet persisted the order.
-      if(!order) throw new Error('Đơn thanh toán chưa sẵn sàng.');
-      if(order.status==='PAID')return;
-      if(order.amount!==Number(payload.data.amount))throw new Error('Số tiền webhook không khớp đơn hàng.');
-      if(order.status!=='PENDING')throw new Error('Trạng thái đơn không hợp lệ.');
-      order.status='PAID';order.reference=payload.data.reference;order.paidAt=new Date();
-      await order.save({session});
-      const user=await User.findOneAndUpdate({email:order.userEmail},{$inc:{userXu:order.coins}},{new:true,session});
-      if(!user)throw new Error('Không tìm thấy ví.');
-      await Transaction.create([{userEmail:user.email,type:'PAYOS_TOPUP',amount:order.coins,status:'SUCCESS',metadata:{orderCode:order.orderCode,amountVnd:order.amount,reference:order.reference}}],{session});
-      await Notification.create([{userEmail:user.email,title:'Nạp Xu thành công',body:`PayOS đã xác nhận đơn #${order.orderCode}. ${order.coins} Xu đã được cộng vào ví.`,type:'WALLET'}],{session});
-    });
+    await settlePayosTopup({orderCode:payload.data.orderCode,amount:payload.data.amount,reference:payload.data.reference});
     res.json({success:true});
   } catch(error){console.error('PayOS webhook:',error.message);res.status(500).json({success:false,msg:'Không thể xử lý webhook.'});}
-  finally{await session.endSession();}
 });
 app.put('/api/mentors/:email/bank-account',requireAuth,requireSelfOrAdmin(),async(req,res)=>{const email=req.params.email.trim().toLowerCase(),bank=req.body.bankAccount||{};const required=['bankName','accountNumber','accountHolder'];if(required.some(key=>!String(bank[key]||'').trim()))return res.status(400).json({success:false,msg:'Hãy nhập đủ ngân hàng, số tài khoản và tên chủ tài khoản.'});if(!/^\d{6,19}$/.test(String(bank.accountNumber)))return res.status(400).json({success:false,msg:'Số tài khoản phải gồm 6–19 chữ số.'});const user=await User.findOneAndUpdate({email,role:'mentor'},{$set:{bankAccount:{bankName:String(bank.bankName).trim(),accountNumber:String(bank.accountNumber).trim(),accountHolder:String(bank.accountHolder).trim().toUpperCase(),bin:String(bank.bin||'').trim()}}},{new:true});if(!user)return res.status(404).json({success:false,msg:'Không tìm thấy tài khoản Mentor.'});res.json({success:true,bankAccount:user.bankAccount});});
 app.get('/api/mentors/:email/bank-accounts',requireAuth,requireSelfOrAdmin(),async(req,res)=>{const user=await User.findOne({email:req.params.email.toLowerCase(),role:'mentor'}).lean();if(!user)return res.status(404).json({success:false,msg:'Không tìm thấy tài khoản Mentor.'});const accounts=user.bankAccounts?.length?user.bankAccounts:(user.bankAccount?.accountNumber?[{...user.bankAccount,id:'legacy'}]:[]);res.json({success:true,accounts,selectedAccountNumber:user.bankAccount?.accountNumber||null});});

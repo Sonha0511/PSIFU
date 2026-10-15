@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert, TextInput, Modal, Dimensions, FlatList, Image } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert, TextInput, Modal, Dimensions, FlatList, Image, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -42,7 +42,7 @@ import ChangePassword from './pages/ChangePassword';
 import ProfileSetup from './pages/ProfileSetup';
 import Onboarding from './pages/Onboarding';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getRoleTheme, setActiveRole } from './theme/roleTheme';
+import { getRoleTheme, setActiveAppearance, setActiveRole } from './theme/roleTheme';
 
 const { width } = Dimensions.get('window');
 const BOOKING_TIME_SLOTS = ['09:00', '10:00', '14:00', '15:00', '19:00'];
@@ -67,6 +67,7 @@ const getAvailableTimeSlots = (date, occupiedTimes = [], openedSlots = []) => {
 const ALL_TERMS = ['Kỳ 1', 'Kỳ 2', 'Kỳ 3', 'Kỳ 4', 'Kỳ 5', 'Kỳ 6', 'Kỳ 7','Kỳ 8', 'Kỳ 9'];
 
 export default function App() {
+  const systemAppearance = useColorScheme();
   const sessionEpoch = useRef(0);
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -111,8 +112,12 @@ export default function App() {
   const [showPayOSPayment, setShowPayOSPayment] = useState(false);
   const [topUpStandalone, setTopUpStandalone] = useState(false);
 
-  // Cấu hình giao diện Sáng / Tối (Dark Mode)
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  // Giao diện Sáng / Tối / Theo hệ thống, dùng chung cho toàn ứng dụng.
+  const [appearanceMode, setAppearanceMode] = useState('system');
+  const resolvedAppearance = appearanceMode === 'system' ? (systemAppearance === 'dark' ? 'dark' : 'light') : appearanceMode;
+  const isDarkMode = resolvedAppearance === 'dark';
+  const changeAppearance = async mode => { const next = ['light','dark','system'].includes(mode) ? mode : 'system'; setActiveAppearance(next === 'system' ? (systemAppearance === 'dark' ? 'dark' : 'light') : next); setAppearanceMode(next); await AsyncStorage.setItem('@psifu_appearance', next); };
+  const setIsDarkMode = value => changeAppearance(value ? 'dark' : 'light');
 
   // Thông tin User
   const [university, setUniversity] = useState('');
@@ -139,6 +144,7 @@ export default function App() {
 
   useEffect(() => {
     AsyncStorage.getItem('@psifu_has_seen_onboarding').then(value => setHasSeenOnboarding(value === 'true'));
+    AsyncStorage.getItem('@psifu_appearance').then(value => { if (['light','dark','system'].includes(value)) setAppearanceMode(value); });
   }, []);
 
   useEffect(() => {
@@ -386,7 +392,8 @@ export default function App() {
     setOccupiedBookingTimes(availability.occupiedTimes || []);
   };
 
-  const roleTheme = getRoleTheme(userRole);
+  setActiveAppearance(resolvedAppearance);
+  const roleTheme = getRoleTheme(userRole,resolvedAppearance);
   const themeContainer = { backgroundColor: roleTheme.background };
   const themeText = isDarkMode ? styles.darkText : styles.lightText;
   const themeCard = isDarkMode ? styles.darkCard : styles.lightCard;
@@ -427,7 +434,7 @@ export default function App() {
   if (selectedDocumentReader) return <SafeAreaView style={[styles.container, styles.lightContainer]}><DocumentReader document={selectedDocumentReader} activity={documentActivity[selectedDocumentReader.id] || {}} onActivity={patch=>saveDocumentActivity(selectedDocumentReader.id,patch)} onBack={() => setSelectedDocumentReader(null)} onQuiz={() => openAiQuiz(selectedDocumentReader)} /><ToastNotice notice={notice} onClose={() => setNotice(null)} /></SafeAreaView>;
   if (selectedDocumentDetail) return <SafeAreaView style={[styles.container, styles.lightContainer]}><DocumentDetail document={selectedDocumentDetail} unlocked={!!unlockedDocs[selectedDocumentDetail.id] || Number(selectedDocumentDetail.fee || 0) === 0} rating={documentActivity[selectedDocumentDetail.id]?.rating || 0} saved={!!documentActivity[selectedDocumentDetail.id]?.saved} onSave={saved=>saveDocumentActivity(selectedDocumentDetail.id,{saved})} onBack={() => setSelectedDocumentDetail(null)} onUnlock={() => handleUnlockDoc(selectedDocumentDetail)} onRead={() => openDocumentReader(selectedDocumentDetail)} onQuiz={() => openAiQuiz(selectedDocumentDetail)} onRate={(rating) => handleRateDocument(selectedDocumentDetail.id, rating)} /><ToastNotice notice={notice} onClose={() => setNotice(null)} /></SafeAreaView>;
   if (showTopUpModal && !showPayOSPayment) return <SafeAreaView style={[styles.container, styles.lightContainer]}><TopUpScreen balance={userXu} amount={topUpAmount} requiredFee={topUpStandalone ? 0 : selectedMentorFee} onChangeAmount={setTopUpAmount} onClose={() => { setShowTopUpModal(false); if (!topUpStandalone) setShowBookingModal(true); }} onContinue={() => setShowPayOSPayment(true)} /></SafeAreaView>;
-  if (showPayOSPayment) return <SafeAreaView style={[styles.container, styles.lightContainer]}><PayOSPayment coins={topUpAmount} email={email} onCancel={() => setShowPayOSPayment(false)} onPaid={(payment) => { setUserXu(payment.userXu); setCurrentUser(previous => ({...previous,userXu:payment.userXu})); setShowPayOSPayment(false); setShowTopUpModal(false); if(!topUpStandalone)setShowBookingModal(true); setNotice({title:'Nạp Xu thành công',message:`PayOS đã xác nhận và cộng ${payment.coins} Xu vào ví PSIFU.`}); }} /></SafeAreaView>;
+  if (showPayOSPayment) return <SafeAreaView style={[styles.container, themeContainer]}><PayOSPayment coins={topUpAmount} email={email} role={userRole} appearance={resolvedAppearance} onCancel={() => setShowPayOSPayment(false)} onPaid={(payment) => { setUserXu(payment.userXu); setCurrentUser(previous => ({...previous,userXu:payment.userXu})); setShowPayOSPayment(false); setShowTopUpModal(false); if(!topUpStandalone)setShowBookingModal(true); setNotice({title:'Nạp Xu thành công',message:`PayOS đã xác nhận và cộng ${payment.coins} Xu vào ví PSIFU.`}); }} /></SafeAreaView>;
   if (showBookingModal) return <SafeAreaView style={[styles.container, styles.lightContainer]}><AppointmentFlow initialDate={bookingDate} initialTime={bookingTime} initialNote={bookingNote} mentor={selectedMentor} course={selectedBookingCourse} fee={selectedMentorFee} onCancel={() => setShowBookingModal(false)} onSubmit={submitBooking} onLoadAvailability={date => Database.getMentorAvailability(selectedMentorId,date)} /></SafeAreaView>;
 
   return (
@@ -630,8 +637,8 @@ export default function App() {
         {/* 3. MENTOR */}
         {currentTab === 'mentor' && userRole !== 'mentor' && <FindMentor mentors={mentorProfiles} courses={courses} currentTerm={currentTerm} bookings={myBookings} currentUser={currentUser} onNotifications={() => setShowNotifications(true)} onBook={triggerBooking} />}
 
-        {currentTab === 'profile' && userRole === 'mentor' && <MentorProfileHub onChangePassword={() => setShowChangePassword(true)} onNotifications={() => setShowNotifications(true)} user={{...currentUser, avatarUrl}} onUpdate={async next => { const ok=await Database.updateUserData(email, { fullName: next.fullName, mentorBio: next.mentorBio, avatarUrl: next.avatarUrl, mentorCourses: next.mentorCourses }); if(ok){setCurrentUser(previous=>({...previous,...next}));setFullName(next.fullName);if(next.avatarUrl)setAvatarUrl(next.avatarUrl);}return ok; }} onLogout={handleLogout} />}
-        {currentTab === 'profile' && userRole !== 'mentor' && <ProfileHub user={{...currentUser, avatarUrl}} university={university} currentTerm={currentTerm} userXu={userXu} bookings={myBookings} mentors={mentorProfiles} documents={mentorDocuments} unlockedDocs={unlockedDocs} onEdit={() => setShowEditProfileModal(true)} onTopUp={() => {setTopUpStandalone(true);setShowTopUpModal(true);}} onOpenDocument={(doc) => setSelectedDocumentDetail(doc)} onOpenSchedule={() => setCurrentTab('schedule')} onOpenChat={() => setCurrentTab('chat')} onChangePassword={() => setShowChangePassword(true)} onClaimReward={() => setCurrentTab('rewards')} onOpenCourses={() => setCurrentTab('courses')} onUpdateBooking={handleUpdateBooking} onLogout={handleLogout} />}
+        {currentTab === 'profile' && userRole === 'mentor' && <MentorProfileHub appearanceMode={appearanceMode} onAppearanceChange={changeAppearance} onChangePassword={() => setShowChangePassword(true)} onNotifications={() => setShowNotifications(true)} user={{...currentUser, avatarUrl}} onUpdate={async next => { const ok=await Database.updateUserData(email, { fullName: next.fullName, mentorBio: next.mentorBio, avatarUrl: next.avatarUrl, mentorCourses: next.mentorCourses }); if(ok){setCurrentUser(previous=>({...previous,...next}));setFullName(next.fullName);if(next.avatarUrl)setAvatarUrl(next.avatarUrl);}return ok; }} onLogout={handleLogout} />}
+        {currentTab === 'profile' && userRole !== 'mentor' && <ProfileHub appearanceMode={appearanceMode} onAppearanceChange={changeAppearance} user={{...currentUser, avatarUrl}} university={university} currentTerm={currentTerm} userXu={userXu} bookings={myBookings} mentors={mentorProfiles} documents={mentorDocuments} unlockedDocs={unlockedDocs} onEdit={() => setShowEditProfileModal(true)} onTopUp={() => {setTopUpStandalone(true);setShowTopUpModal(true);}} onOpenDocument={(doc) => setSelectedDocumentDetail(doc)} onOpenSchedule={() => setCurrentTab('schedule')} onOpenChat={() => setCurrentTab('chat')} onChangePassword={() => setShowChangePassword(true)} onClaimReward={() => setCurrentTab('rewards')} onOpenCourses={() => setCurrentTab('courses')} onUpdateBooking={handleUpdateBooking} onLogout={handleLogout} />}
 
         {/* 4. PROFILE */}
         {false && (
