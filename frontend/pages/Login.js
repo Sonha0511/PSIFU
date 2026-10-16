@@ -13,7 +13,9 @@ export default function Login({ onLoginSuccess, onSwitchToRegister, onForgotPass
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const googleClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+  // OAuth client IDs are public identifiers. Keep the deployed web login
+  // available even when a local Cloudflare export does not load EAS env vars.
+  const googleClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '667620888928-mdv8geuv2403na059qc9v4d8m1ileh2u.apps.googleusercontent.com';
   const canUseNativeGoogle = Boolean(NativeModules.RNGoogleSignin);
   const isWeb = Platform.OS === 'web';
   useEffect(() => setEmail(prefilledEmail), [prefilledEmail]);
