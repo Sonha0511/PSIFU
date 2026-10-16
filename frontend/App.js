@@ -404,7 +404,7 @@ export default function App() {
 
   if (!isLoggedIn) {
     if (authScreen === 'login') {
-      return <Login onLoginSuccess={handleLoginSuccess} prefilledEmail={loginPrefillEmail} onSwitchToRegister={() => setAuthScreen('register')} onForgotPassword={() => setAuthScreen('forgot')} />;
+      return <Login isDarkMode={isDarkMode} onLoginSuccess={handleLoginSuccess} prefilledEmail={loginPrefillEmail} onSwitchToRegister={() => setAuthScreen('register')} onForgotPassword={() => setAuthScreen('forgot')} />;
     }
     if (authScreen === 'forgot') {
       return <ForgotPassword onBack={() => setAuthScreen('login')} onCodeSent={(resetEmail) => { setLoginPrefillEmail(resetEmail); setAuthScreen('resetVerify'); }} />;

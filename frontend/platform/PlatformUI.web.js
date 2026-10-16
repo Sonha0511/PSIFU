@@ -21,7 +21,7 @@ function installBrowserLayout() {
   const style=document.createElement('style');
   style.id='psifu-mobile-layout';
   style.textContent=`
-    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#F8FAFF;-webkit-text-size-adjust:100%;}
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#F8FAFF;-webkit-text-size-adjust:100%;color-scheme:only light;}
     #root{position:fixed;top:var(--psifu-top,0px);left:0;right:0;height:var(--psifu-height,100dvh);display:flex;overflow:hidden;}
     #root>div{flex:1;min-height:0;min-width:0;}
     input,textarea{font-size:16px!important;box-sizing:border-box;}
