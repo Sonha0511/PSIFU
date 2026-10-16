@@ -114,9 +114,15 @@ export default function App() {
 
   // Giao diện Sáng / Tối / Theo hệ thống, dùng chung cho toàn ứng dụng.
   const [appearanceMode, setAppearanceMode] = useState('system');
-  const resolvedAppearance = appearanceMode === 'system' ? (systemAppearance === 'dark' ? 'dark' : 'light') : appearanceMode;
+  // The website is primarily used in desktop browsers, where an OS-level dark
+  // preference previously made the whole dashboard unexpectedly near-black.
+  // Keep "system" comfortable and bright on web; an explicit Dark selection
+  // still works, while native apps continue to follow the device setting.
+  const resolvedAppearance = appearanceMode === 'system'
+    ? (Platform.OS === 'web' ? 'light' : (systemAppearance === 'dark' ? 'dark' : 'light'))
+    : appearanceMode;
   const isDarkMode = resolvedAppearance === 'dark';
-  const changeAppearance = async mode => { const next = ['light','dark','system'].includes(mode) ? mode : 'system'; setActiveAppearance(next === 'system' ? (systemAppearance === 'dark' ? 'dark' : 'light') : next); setAppearanceMode(next); await AsyncStorage.setItem('@psifu_appearance', next); };
+  const changeAppearance = async mode => { const next = ['light','dark','system'].includes(mode) ? mode : 'system'; setActiveAppearance(next === 'system' ? (Platform.OS === 'web' ? 'light' : (systemAppearance === 'dark' ? 'dark' : 'light')) : next); setAppearanceMode(next); await AsyncStorage.setItem('@psifu_appearance', next); };
   const setIsDarkMode = value => changeAppearance(value ? 'dark' : 'light');
 
   // Thông tin User

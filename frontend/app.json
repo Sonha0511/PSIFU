@@ -3,7 +3,7 @@
     "name": "PSIFU",
     "slug": "psifu",
     "scheme": "psifu",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "light",
@@ -25,7 +25,7 @@
       }
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/logo.png"
     },
     "experiments": {
       "baseUrl": "/login"

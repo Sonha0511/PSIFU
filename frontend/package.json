@@ -6,7 +6,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "deploy": "npx expo export -p web && wrangler deploy",
+    "deploy": "npm run deploy:login",
     "deploy:login": "npx expo export -p web --output-dir dist-login && node scripts/prepare-login-dist.mjs && wrangler deploy --config wrangler.login.jsonc",
     "preview": "npx expo export -p web && wrangler dev"
   },
