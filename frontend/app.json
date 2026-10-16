@@ -27,6 +27,9 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "experiments": {
+      "baseUrl": "/login"
+    },
     "plugins": [
       "expo-status-bar",
       "expo-font",

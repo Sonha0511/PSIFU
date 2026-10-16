@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "psifu-login",
+  "compatibility_date": "2026-10-16",
+  "routes": [
+    { "pattern": "psifu.online/login*", "zone_name": "psifu.online" }
+  ],
+  "assets": {
+    "directory": "dist-login-root",
+    "html_handling": "auto-trailing-slash"
+  }
+}
