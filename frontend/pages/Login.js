@@ -1,18 +1,20 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, KeyboardAvoidingView, NativeModules, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Database } from '../data/database';
 import AuthSnowflakes from '../components/AuthSnowflakes';
 
 export default function Login({ onLoginSuccess, onSwitchToRegister, onForgotPassword, prefilledEmail = '', isDarkMode = false }) {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 900;
-  const s = useMemo(() => createStyles(isDarkMode, isDesktop), [isDarkMode, isDesktop]);
+  const isCompact = Platform.OS === 'web' && height < 820;
+  const s = useMemo(() => createStyles(isDarkMode, isDesktop, isCompact), [isDarkMode, isDesktop, isCompact]);
   const [email, setEmail] = useState(prefilledEmail);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const googleButtonRef = useRef(null);
   // OAuth client IDs are public identifiers. Keep the deployed web login
   // available even when a local Cloudflare export does not load EAS env vars.
   const googleClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '667620888928-mdv8geuv2403na059qc9v4d8m1ileh2u.apps.googleusercontent.com';
@@ -26,14 +28,29 @@ export default function Login({ onLoginSuccess, onSwitchToRegister, onForgotPass
   }, [canUseNativeGoogle, googleClientId]);
   useEffect(() => {
     if (!isWeb || !googleClientId || typeof document === 'undefined') return undefined;
-    if (window.google?.accounts?.id) return undefined;
-    const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.defer = true;
-    document.head.appendChild(script);
-    return () => { script.remove(); };
-  }, [googleClientId, isWeb]);
+    let active = true;
+    const handleCredential = async response => {
+      if (!response?.credential) return setError('Google chưa trả về thông tin xác thực.');
+      setLoading(true); setError('');
+      try {
+        const result = await Database.loginWithGoogle(response.credential);
+        if (result.success) onLoginSuccess(result.user);
+        else setError(result.msg || 'Không thể đăng nhập bằng Google.');
+      } catch (webError) { setError(webError?.message || 'Không thể đăng nhập bằng Google.'); }
+      finally { setLoading(false); }
+    };
+    const renderGoogleButton = () => {
+      if (!active || !window.google?.accounts?.id || !googleButtonRef.current) return;
+      window.google.accounts.id.initialize({client_id:googleClientId,callback:handleCredential,ux_mode:'popup',cancel_on_tap_outside:true,use_fedcm_for_prompt:true});
+      googleButtonRef.current.innerHTML='';
+      window.google.accounts.id.renderButton(googleButtonRef.current,{type:'standard',theme:'outline',size:'large',text:'continue_with',shape:'rectangular',width:Math.min(390,Math.max(260,width-48)),logo_alignment:'left'});
+    };
+    const existing=document.querySelector('script[data-psifu-google]');
+    if(window.google?.accounts?.id)renderGoogleButton();
+    else if(existing)existing.addEventListener('load',renderGoogleButton,{once:true});
+    else {const script=document.createElement('script');script.src='https://accounts.google.com/gsi/client';script.async=true;script.defer=true;script.dataset.psifuGoogle='true';script.onload=renderGoogleButton;script.onerror=()=>setError('Không tải được Google Sign-In. Vui lòng kiểm tra kết nối hoặc trình chặn quảng cáo.');document.head.appendChild(script);}
+    return()=>{active=false;existing?.removeEventListener('load',renderGoogleButton);};
+  }, [googleClientId, isWeb, onLoginSuccess, width]);
   const login = async () => {
     if (!email.trim() || !password) return setError('Vui lòng nhập email và mật khẩu.');
     setLoading(true); setError('');
@@ -44,23 +61,7 @@ export default function Login({ onLoginSuccess, onSwitchToRegister, onForgotPass
   };
   const loginWithGoogle = async () => {
     if (!googleClientId) return setError('Đăng nhập Google chưa được cấu hình cho bản ứng dụng này.');
-    if (isWeb) {
-      if (!window.google?.accounts?.id) return setError('Google chưa sẵn sàng. Vui lòng thử lại.');
-      setLoading(true); setError('');
-      const handleCredential = async response => {
-        try {
-          const result = await Database.loginWithGoogle(response.credential);
-          if (result.success) onLoginSuccess(result.user);
-          else setError(result.msg || 'Không thể đăng nhập bằng Google.');
-        } catch (webError) { setError(webError?.message || 'Không thể đăng nhập bằng Google.'); }
-        finally { setLoading(false); }
-      };
-      window.google.accounts.id.initialize({ client_id: googleClientId, callback: handleCredential, ux_mode: 'popup' });
-      window.google.accounts.id.prompt(notification => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) setLoading(false);
-      });
-      return;
-    }
+    if (isWeb) return setError('Hãy dùng nút Google chính thức ngay bên dưới.');
     if (!canUseNativeGoogle) return setError('Google Sign-In cần bản PSIFU Development Build; Expo Go chỉ dùng để xem giao diện và đăng nhập thường.');
     setLoading(true); setError('');
     try {
@@ -102,7 +103,7 @@ export default function Login({ onLoginSuccess, onSwitchToRegister, onForgotPass
             <View style={s.passwordLabel}><Text style={s.label}>Mật khẩu</Text><TouchableOpacity onPress={onForgotPassword}><Text style={s.forgotText}>Quên mật khẩu?</Text></TouchableOpacity></View><View style={[s.inputWrap, error && s.inputError]}><Ionicons name="lock-closed-outline" size={20} color={s.icon.color} /><TextInput style={s.input} placeholder="Nhập mật khẩu" placeholderTextColor={s.placeholder.color} value={password} onChangeText={v => { setPassword(v); setError(''); }} secureTextEntry={!showPassword} autoComplete="current-password" onSubmitEditing={login} /><TouchableOpacity hitSlop={10} onPress={() => setShowPassword(!showPassword)}><Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={21} color={s.icon.color} /></TouchableOpacity></View>
             {error ? <View style={s.errorBox}><Ionicons name="alert-circle-outline" size={17} color="#E35D6A"/><Text style={s.error}>{error}</Text></View> : null}
             <TouchableOpacity style={[s.loginGlowButton, loading && s.disabled]} onPress={login} disabled={loading}><Text style={s.primaryText}>{loading ? 'ĐANG ĐĂNG NHẬP...' : 'ĐĂNG NHẬP'}</Text><Ionicons name="arrow-forward" size={18} color="#FFF"/></TouchableOpacity>
-            {googleClientId ? <><View style={s.divider}><View style={s.dividerLine}/><Text style={s.dividerText}>hoặc tiếp tục với</Text><View style={s.dividerLine}/></View><TouchableOpacity style={[s.googleButton, loading && s.disabled]} onPress={loginWithGoogle} disabled={loading}><Text style={s.googleMark}>G</Text><Text style={s.googleText}>Google</Text></TouchableOpacity></> : null}
+            {googleClientId ? <><View style={s.divider}><View style={s.dividerLine}/><Text style={s.dividerText}>hoặc tiếp tục với</Text><View style={s.dividerLine}/></View>{isWeb?<View style={s.googleHost} ref={googleButtonRef}/>:<TouchableOpacity style={[s.googleButton, loading && s.disabled]} onPress={loginWithGoogle} disabled={loading}><Text style={s.googleMark}>G</Text><Text style={s.googleText}>Google</Text></TouchableOpacity>}</> : null}
           </View>
           <View style={s.bottom}><Text style={s.bottomText}>Chưa có tài khoản? </Text><TouchableOpacity onPress={onSwitchToRegister}><Text style={s.link}>Đăng ký ngay</Text></TouchableOpacity></View>
           <View style={s.notice}><Ionicons name="shield-checkmark-outline" size={16} color={s.icon.color} /><Text style={s.noticeText}>Kết nối bảo mật với hệ thống PSIFU</Text></View>
@@ -114,11 +115,11 @@ export default function Login({ onLoginSuccess, onSwitchToRegister, onForgotPass
 
 function Benefit({ icon, text, styles }) { return <View style={styles.benefit}><View style={styles.benefitIcon}><Ionicons name={icon} size={18} color="#BFD3FF"/></View><Text style={styles.benefitText}>{text}</Text></View>; }
 
-function createStyles(dark, desktop) {
+function createStyles(dark, desktop, compact) {
   const p = dark ? { bg:'#0D1118',card:'#171C26',input:'#202735',text:'#F5F7FB',muted:'#A4AFBF',border:'#303A4B',primary:'#6793F4',primarySolid:'#4F78E7',soft:'#20283A',icon:'#8FB0F7' } : { bg:'#F2F5FA',card:'#FFFFFF',input:'#F8FAFD',text:'#172033',muted:'#68758A',border:'#DDE4EF',primary:'#275FD8',primarySolid:'#275FD8',soft:'#EFF4FF',icon:'#416DBD' };
   return StyleSheet.create({
-    screen:{flex:1,backgroundColor:p.bg},scroll:{flexGrow:1,justifyContent:'center',padding:desktop?32:0},shell:{width:'100%',maxWidth:1080,alignSelf:'center',flexDirection:desktop?'row':'column',minHeight:desktop?680:undefined,backgroundColor:p.card,borderRadius:desktop?28:0,overflow:'hidden',shadowColor:'#07152F',shadowOpacity:dark?.35:.15,shadowRadius:28,elevation:8},
-    story:{width:'46%',backgroundColor:'rgba(20,37,75,1)',padding:46,justifyContent:'space-between',overflow:'hidden'},storyBrand:{flexDirection:'row',alignItems:'center',gap:10},storyLogo:{width:44,height:44,borderRadius:12},storyBrandName:{color:'#FFF',fontSize:21,fontWeight:'900',letterSpacing:1.2},storyContent:{zIndex:1},eyebrow:{color:'#9FC0FF',fontSize:11,fontWeight:'900',letterSpacing:1.6},storyTitle:{color:'#FFF',fontSize:42,lineHeight:51,fontWeight:'900',marginTop:18},storyCopy:{color:'#C2CEE3',fontSize:16,lineHeight:25,marginTop:18,maxWidth:360},benefits:{gap:13,marginTop:34},benefit:{flexDirection:'row',alignItems:'center',gap:11},benefitIcon:{width:36,height:36,borderRadius:11,backgroundColor:'rgba(122,159,238,.16)',alignItems:'center',justifyContent:'center'},benefitText:{color:'#E7EDF8',fontSize:14,fontWeight:'700'},storyFoot:{color:'#8697B7',fontSize:11,fontWeight:'700',letterSpacing:.6},
-    card:{flex:1,minHeight:desktop?680:'100%',backgroundColor:p.card,paddingHorizontal:desktop?56:24,paddingTop:desktop?64:38,paddingBottom:32,justifyContent:'center'},brand:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:9},logo:{width:45,height:45,borderRadius:11},brandName:{fontSize:20,fontWeight:'900',color:p.text,letterSpacing:.7},brandSub:{fontSize:9,fontWeight:'800',color:p.primary,letterSpacing:.6,marginTop:2},hero:{marginTop:desktop?0:32},title:{color:p.text,fontSize:desktop?31:27,fontWeight:'900',textAlign:desktop?'left':'center'},subtitle:{color:p.muted,fontSize:15,lineHeight:23,textAlign:desktop?'left':'center',marginTop:10,maxWidth:420},form:{marginTop:31},label:{fontSize:13,fontWeight:'800',color:p.text,marginBottom:8},passwordLabel:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:18},inputWrap:{height:56,flexDirection:'row',alignItems:'center',gap:11,backgroundColor:p.input,borderRadius:13,paddingHorizontal:15,borderWidth:1,borderColor:p.border},inputError:{borderColor:'#E35D6A'},input:{flex:1,fontSize:16,color:p.text,outlineStyle:'none'},icon:{color:p.icon},placeholder:{color:dark?'#748196':'#919CAF'},forgotText:{fontSize:13,color:p.primary,fontWeight:'800',marginBottom:8},errorBox:{marginTop:12,backgroundColor:dark?'#352027':'#FFF0F2',borderRadius:10,padding:10,flexDirection:'row',alignItems:'center',gap:7},error:{flex:1,fontSize:13,color:dark?'#FF9DA8':'#B93645',lineHeight:19},loginGlowButton:{height:55,borderRadius:13,backgroundColor:dark?'rgba(79,120,231,1)':'rgba(39,95,216,1)',alignItems:'center',justifyContent:'center',flexDirection:'row',gap:9,marginTop:20,shadowColor:p.primarySolid,shadowOpacity:.24,shadowRadius:9,elevation:3},disabled:{opacity:.58},primaryText:{color:'#FFF',fontSize:15,fontWeight:'900',letterSpacing:.4},divider:{flexDirection:'row',alignItems:'center',gap:10,marginVertical:18},dividerLine:{height:1,backgroundColor:p.border,flex:1},dividerText:{fontSize:12,color:p.muted},googleButton:{height:52,borderRadius:13,borderWidth:1,borderColor:p.border,backgroundColor:p.card,flexDirection:'row',justifyContent:'center',alignItems:'center',gap:10},googleMark:{fontSize:19,fontWeight:'900',color:'#4285F4'},googleText:{fontSize:15,fontWeight:'800',color:p.text},bottom:{marginTop:22,flexDirection:'row',justifyContent:'center'},bottomText:{fontSize:14,color:p.muted},link:{fontSize:14,color:p.primary,fontWeight:'900'},notice:{marginTop:22,minHeight:36,borderRadius:11,backgroundColor:p.soft,flexDirection:'row',gap:7,alignItems:'center',justifyContent:'center',paddingHorizontal:10},noticeText:{fontSize:12,color:p.muted,fontWeight:'600'}
+    screen:{flex:1,backgroundColor:p.bg},scroll:{flexGrow:1,justifyContent:'center',padding:desktop?(compact?12:28):0},shell:{width:'100%',maxWidth:1120,alignSelf:'center',flexDirection:desktop?'row':'column',minHeight:desktop?(compact?590:660):undefined,backgroundColor:p.card,borderRadius:desktop?24:0,overflow:'hidden',shadowColor:'#07152F',shadowOpacity:dark?.35:.15,shadowRadius:28,elevation:8},
+    story:{width:'46%',backgroundColor:'rgba(20,37,75,1)',padding:compact?30:44,justifyContent:'space-between',overflow:'hidden'},storyBrand:{flexDirection:'row',alignItems:'center',gap:10},storyLogo:{width:compact?36:44,height:compact?36:44,borderRadius:12},storyBrandName:{color:'#FFF',fontSize:21,fontWeight:'900',letterSpacing:1.2},storyContent:{zIndex:1},eyebrow:{color:'#9FC0FF',fontSize:11,fontWeight:'900',letterSpacing:1.6},storyTitle:{color:'#FFF',fontSize:compact?34:42,lineHeight:compact?41:51,fontWeight:'900',marginTop:compact?10:18},storyCopy:{color:'#C2CEE3',fontSize:compact?14:16,lineHeight:compact?21:25,marginTop:compact?10:18,maxWidth:360},benefits:{gap:compact?8:13,marginTop:compact?18:34},benefit:{flexDirection:'row',alignItems:'center',gap:11},benefitIcon:{width:compact?31:36,height:compact?31:36,borderRadius:11,backgroundColor:'rgba(122,159,238,.16)',alignItems:'center',justifyContent:'center'},benefitText:{color:'#E7EDF8',fontSize:compact?12:14,fontWeight:'700'},storyFoot:{color:'#8697B7',fontSize:11,fontWeight:'700',letterSpacing:.6},
+    card:{flex:1,minHeight:desktop?(compact?590:660):'100%',backgroundColor:p.card,paddingHorizontal:desktop?(compact?40:54):22,paddingTop:desktop?(compact?28:54):(compact?18:30),paddingBottom:compact?16:28,justifyContent:'center'},brand:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:9},logo:{width:compact?38:45,height:compact?38:45,borderRadius:11},brandName:{fontSize:20,fontWeight:'900',color:p.text,letterSpacing:.7},brandSub:{fontSize:9,fontWeight:'800',color:p.primary,letterSpacing:.6,marginTop:2},hero:{marginTop:desktop?0:(compact?14:24)},title:{color:p.text,fontSize:desktop?31:27,fontWeight:'900',textAlign:desktop?'left':'center'},subtitle:{color:p.muted,fontSize:compact?13:15,lineHeight:compact?19:23,textAlign:desktop?'left':'center',marginTop:compact?5:9,maxWidth:420},form:{marginTop:compact?17:27},label:{fontSize:13,fontWeight:'800',color:p.text,marginBottom:compact?5:8},passwordLabel:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:compact?11:17},inputWrap:{height:compact?48:54,flexDirection:'row',alignItems:'center',gap:11,backgroundColor:p.input,borderRadius:13,paddingHorizontal:15,borderWidth:1,borderColor:p.border},inputError:{borderColor:'#E35D6A'},input:{flex:1,fontSize:16,color:p.text,outlineStyle:'none'},icon:{color:p.icon},placeholder:{color:dark?'#748196':'#919CAF'},forgotText:{fontSize:13,color:p.primary,fontWeight:'800',marginBottom:compact?5:8},errorBox:{marginTop:8,backgroundColor:dark?'#352027':'#FFF0F2',borderRadius:10,padding:8,flexDirection:'row',alignItems:'center',gap:7},error:{flex:1,fontSize:12,color:dark?'#FF9DA8':'#B93645',lineHeight:17},loginGlowButton:{height:compact?48:53,borderRadius:13,backgroundColor:dark?'rgba(79,120,231,1)':'rgba(39,95,216,1)',alignItems:'center',justifyContent:'center',flexDirection:'row',gap:9,marginTop:compact?12:18,shadowColor:p.primarySolid,shadowOpacity:.24,shadowRadius:9,elevation:3},disabled:{opacity:.58},primaryText:{color:'#FFF',fontSize:15,fontWeight:'900',letterSpacing:.4},divider:{flexDirection:'row',alignItems:'center',gap:10,marginVertical:compact?10:15},dividerLine:{height:1,backgroundColor:p.border,flex:1},dividerText:{fontSize:12,color:p.muted},googleHost:{minHeight:44,width:'100%',alignItems:'center',justifyContent:'center'},googleButton:{height:48,borderRadius:13,borderWidth:1,borderColor:p.border,backgroundColor:p.card,flexDirection:'row',justifyContent:'center',alignItems:'center',gap:10},googleMark:{fontSize:19,fontWeight:'900',color:'#4285F4'},googleText:{fontSize:15,fontWeight:'800',color:p.text},bottom:{marginTop:compact?12:18,flexDirection:'row',justifyContent:'center'},bottomText:{fontSize:14,color:p.muted},link:{fontSize:14,color:p.primary,fontWeight:'900'},notice:{marginTop:compact?10:18,minHeight:compact?30:36,borderRadius:11,backgroundColor:p.soft,flexDirection:'row',gap:7,alignItems:'center',justifyContent:'center',paddingHorizontal:10},noticeText:{fontSize:12,color:p.muted,fontWeight:'600'}
   });
 }

@@ -29,7 +29,7 @@ const asTime = (value) => {
   }
 };
 
-export default function HomeLiveChat({ name, email, role = "MENTEE", variant }) {
+export default function HomeLiveChat({ name, email, role = "MENTEE", variant, compact = false }) {
   const theme = getRoleTheme(variant || (role === "MENTOR" ? "mentor" : "mentee"));
   const s = createStyles(theme);
   const [messages, setMessages] = useState([]);
@@ -106,7 +106,7 @@ export default function HomeLiveChat({ name, email, role = "MENTEE", variant }) 
   const feed = (
     <>
       {messages.length ? (
-        messages.slice(open ? -50 : -4).map((item, index) => (
+        messages.slice(open ? -50 : compact ? -2 : -4).map((item, index) => (
           <View
             key={item.id || item._id || `${item.createdAt}-${index}`}
             style={s.message}
@@ -164,9 +164,9 @@ export default function HomeLiveChat({ name, email, role = "MENTEE", variant }) 
           </TouchableOpacity>
         </View>
         <View style={s.feed}>{feed}</View>
-        {composer}
-        <TouchableOpacity style={s.expand} onPress={() => setOpen(true)}>
-          <Text style={s.expandText}>Open Full Chat Room →</Text>
+        {!compact&&composer}
+        <TouchableOpacity style={[s.expand,compact&&{marginTop:8}]} onPress={() => setOpen(true)}>
+          <Text style={s.expandText}>{compact?'Mở chat để xem và nhắn tin →':'Open Full Chat Room →'}</Text>
         </TouchableOpacity>
       </View>
       <Modal
