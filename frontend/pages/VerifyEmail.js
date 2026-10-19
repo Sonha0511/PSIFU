@@ -4,12 +4,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { Database } from '../data/database';
 import AuthSnowflakes from '../components/AuthSnowflakes';
 
-export default function VerifyEmail({ email, onBack, onVerified, purpose = 'verify-email', autoSend = true }) {
+export default function VerifyEmail({ email, onBack, onVerified, autoSend = true }) {
   const [digits, setDigits] = useState(['', '', '', '', '', '']);
   const [resendText, setResendText] = useState('Gửi lại mã');
-  const [message, setMessage] = useState(''); const [devCode, setDevCode] = useState(''); const [loading, setLoading] = useState(false); const [verified, setVerified] = useState(false);
+  const [message, setMessage] = useState(''); const [devCode, setDevCode] = useState(''); const [loading, setLoading] = useState(false);
   const refs = useRef([]);
-  const sendCode = async (isResend = false) => { setLoading(true); const result = purpose === 'password-reset' ? await Database.sendPasswordResetCode(email) : await Database.sendEmailVerification(email); setLoading(false); if (result.success) { setResendText('Đã gửi lại mã'); setDevCode(result.delivery === 'development' ? result.devCode : ''); setMessage(result.msg || (isResend ? 'Mã mới đã được gửi. Vui lòng kiểm tra email.' : 'Mã OTP đã được gửi tới email của bạn.')); } else { setDevCode(''); setMessage(result.msg || 'Không thể gửi mã lúc này.'); } };
+  const sendCode = async (isResend = false) => { setLoading(true); const result = await Database.sendPasswordResetCode(email); setLoading(false); if (result.success) { setResendText('Đã gửi lại mã'); setDevCode(result.delivery === 'development' ? result.devCode : ''); setMessage(result.msg || (isResend ? 'Mã mới đã được gửi. Vui lòng kiểm tra email.' : 'Mã OTP đã được gửi tới email của bạn.')); } else { setDevCode(''); setMessage(result.msg || 'Không thể gửi mã lúc này.'); } };
   useEffect(() => { if (autoSend) sendCode(); }, [autoSend]);
   const updateDigit = (value, index) => {
     const digit = value.replace(/\D/g, '').slice(-1);
@@ -18,20 +18,18 @@ export default function VerifyEmail({ email, onBack, onVerified, purpose = 'veri
   };
   const verify = async () => {
     if (digits.join('').length !== 6) return Alert.alert('Chưa đủ mã', 'Vui lòng nhập đủ 6 chữ số xác minh.');
-    setLoading(true); const code = digits.join(''); const result = purpose === 'password-reset' ? await Database.verifyPasswordResetCode(email, code) : await Database.verifyEmailCode(email, code); setLoading(false);
+    setLoading(true); const code = digits.join(''); const result = await Database.verifyPasswordResetCode(email, code); setLoading(false);
     if (!result.success) return setMessage(result.msg || 'Mã OTP không hợp lệ.');
-    if (purpose === 'password-reset') return onVerified(email, code);
-    setVerified(true);
+    return onVerified(email, code);
   };
   const resend = () => { setDigits(['', '', '', '', '', '']); refs.current[0]?.focus(); sendCode(true); };
-  if (verified) return <View style={styles.successScreen}><AuthSnowflakes /><View style={styles.successCard}><View style={styles.brand}><Image source={require('../assets/logo.png')} style={styles.logo} /><Text style={styles.successBrand}>PSIFU</Text></View><View style={styles.checkCircle}><Ionicons name="checkmark" size={42} color="#fff" /></View><Text style={styles.successTitle}>Welcome to PSIFU!</Text><Text style={styles.successSub}>Tài khoản của bạn đã được tạo thành công.</Text><View style={styles.account}><Text style={styles.accountLabel}>EMAIL TÀI KHOẢN</Text><Text style={styles.accountEmail}>✉  {email}</Text></View><Text style={styles.successNote}>Đăng nhập để hoàn thiện thông tin học tập và cá nhân hóa trải nghiệm mentoring tại PSIFU.</Text><TouchableOpacity style={styles.continueButton} onPress={() => onVerified(email)}><Text style={styles.verifyText}>Continue to Login  →</Text></TouchableOpacity><Text style={styles.sent}>⊙ Email của bạn sẽ được điền sẵn.</Text></View></View>;
   return <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
     <AuthSnowflakes />
     <TouchableOpacity style={styles.back} onPress={onBack}><Ionicons name="arrow-back" size={21} color="#155eef" /></TouchableOpacity>
     <View style={styles.content}>
       <View style={styles.brand}><Image source={require('../assets/logo.png')} style={styles.logo} resizeMode="contain" /><Text style={styles.brandName}>PSIFU</Text></View>
       <View style={styles.illustration}><View style={styles.mailBox}><Ionicons name="mail" size={42} color="#fff" /><View style={styles.badge}><Ionicons name="shield-checkmark" size={17} color="#fff" /></View></View></View>
-      <Text style={styles.title}>{purpose === 'password-reset' ? 'Xác minh đặt lại mật khẩu' : 'Xác minh email'}</Text><Text style={styles.subtitle}>Nhập mã 6 chữ số được gửi tới email của bạn.</Text>
+      <Text style={styles.title}>Xác minh đặt lại mật khẩu</Text><Text style={styles.subtitle}>Nhập mã 6 chữ số được gửi tới email của bạn.</Text>
       <View style={styles.emailPill}><Ionicons name="mail-outline" size={15} color="#155eef" /><Text style={styles.email} numberOfLines={1}>{email || 'email@example.com'}</Text></View>
       <View style={styles.codeRow}>{digits.map((digit, index) => <TextInput key={index} ref={node => { refs.current[index] = node; }} style={[styles.codeInput, digit && styles.codeFilled]} value={digit} onChangeText={value => updateDigit(value, index)} keyboardType="number-pad" maxLength={1} selectTextOnFocus />)}</View>
       <TouchableOpacity style={[styles.verifyButton, (digits.join('').length !== 6 || loading) && styles.verifyDisabled]} onPress={verify} disabled={loading}><Text style={styles.verifyText}>{loading ? 'ĐANG XỬ LÝ...' : 'XÁC MINH'}</Text></TouchableOpacity>

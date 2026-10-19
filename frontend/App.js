@@ -412,13 +412,12 @@ export default function App() {
       return <ForgotPassword onBack={() => setAuthScreen('login')} onCodeSent={(resetEmail) => { setLoginPrefillEmail(resetEmail); setAuthScreen('resetVerify'); }} />;
     }
     if (authScreen === 'resetVerify') {
-      return <VerifyEmail email={loginPrefillEmail} purpose="password-reset" autoSend={true} onBack={() => setAuthScreen('forgot')} onVerified={(resetEmail, code) => { setLoginPrefillEmail(resetEmail); setResetOtpCode(code); setAuthScreen('resetPassword'); }} />;
+      return <VerifyEmail email={loginPrefillEmail} autoSend={true} onBack={() => setAuthScreen('forgot')} onVerified={(resetEmail, code) => { setLoginPrefillEmail(resetEmail); setResetOtpCode(code); setAuthScreen('resetPassword'); }} />;
     }
     if (authScreen === 'resetPassword') {
       return <ResetPassword email={loginPrefillEmail} otpCode={resetOtpCode} onBack={() => setAuthScreen('resetVerify')} onComplete={(resetEmail) => { setLoginPrefillEmail(resetEmail); setResetOtpCode(''); setAuthScreen('login'); }} />;
     } else {
-      if (authScreen === 'registerVerify') return <VerifyEmail email={loginPrefillEmail} onBack={() => setAuthScreen('register')} onVerified={(verifiedEmail) => { setLoginPrefillEmail(verifiedEmail); setAuthScreen('login'); }} />;
-      return <Register onSwitchToLogin={() => setAuthScreen('login')} onRegisterSuccess={(registeredEmail) => { setLoginPrefillEmail(registeredEmail); setAuthScreen('registerVerify'); }} />;
+      return <Register onSwitchToLogin={() => setAuthScreen('login')} onRegisterSuccess={(registeredEmail) => { setLoginPrefillEmail(registeredEmail); setAuthScreen('login'); }} />;
     }
   }
 

@@ -55,9 +55,19 @@ function installBrowserLayout() {
   return()=>{style.remove();window.removeEventListener('resize',update);window.visualViewport?.removeEventListener('resize',update);window.visualViewport?.removeEventListener('scroll',update);document.removeEventListener('focusin',focus)};
 }
 
+function trackWebVisit() {
+  if(typeof window==='undefined')return;
+  const key='psifu_web_visit_tracked';
+  if(window.sessionStorage.getItem(key))return;
+  const api=(process.env.EXPO_PUBLIC_API_URL||'https://psifu-api.onrender.com/api').replace(/\/$/,'');
+  window.sessionStorage.setItem(key,'1');
+  fetch(`${api}/track/web-visit`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:'expo-web'}),keepalive:true}).catch(()=>window.sessionStorage.removeItem(key));
+}
+
 export default function PlatformUI({children}) {
   const dialog=useSyncExternalStore(subscribe,snapshot,()=>null);
   useEffect(installBrowserLayout,[]);
+  useEffect(trackWebVisit,[]);
   const finish=button=>{
     queue=queue.slice(1);notify();
     Promise.resolve().then(()=>button?.onPress?.()).catch(error=>Alert.alert('Chưa thực hiện được',error.message||'Vui lòng thử lại.'));

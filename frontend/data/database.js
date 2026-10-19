@@ -16,8 +16,6 @@ export const Database = {
     return result;
   },
   getCurrentUser: () => request('/auth/me'),
-  sendEmailVerification: async email => { try { return await request('/auth/email-verification/send', { method: 'POST', body: JSON.stringify({ email }) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
-  verifyEmailCode: async (email, code) => { try { return await request('/auth/email-verification/verify', { method: 'POST', body: JSON.stringify({ email, code }) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
   sendPasswordResetCode: async email => { try { return await request('/auth/password-reset/send', { method: 'POST', body: JSON.stringify({ email }) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
   verifyPasswordResetCode: async (email, code) => { try { return await request('/auth/password-reset/verify', { method: 'POST', body: JSON.stringify({ email, code }) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
   completePasswordReset: async (email, code, password) => { try { return await request('/auth/password-reset/complete', { method: 'POST', body: JSON.stringify({ email, code, password }) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
