@@ -67,6 +67,18 @@ test('pending bookings cannot enable the meeting button', () => {
   assert.equal(vm.runInNewContext(expression, {bookingStatus:'đã hủy'}), false);
 });
 
+test('direct-message camera starts authenticated call signaling and rejects unconfirmed calls', () => {
+  const source = read('components/DirectMessage.js');
+  const calls = read('components/CallContext.js');
+  assert.match(source, /import \{ useCalls \} from ['"]\.\/CallContext['"]/);
+  assert.match(source, /onPress=\{call\}/);
+  assert.match(source, /String\(booking\.status \|\| ''\)\.toLowerCase\(\) !== 'đã xác nhận'/);
+  assert.match(calls, /socket\.emit\('call:initiate'/);
+  assert.match(calls, /socket\.on\('call:incoming'/);
+  assert.match(calls, /socket\.emit\('call:accept'/);
+  assert.match(calls, /<JitsiSession booking=\{call\.booking\}/);
+});
+
 test('mentor home never labels pending bookings as confirmed', () => {
   const source = read('components/MentorHub.js');
   let expression;
