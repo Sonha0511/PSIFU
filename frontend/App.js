@@ -360,8 +360,22 @@ export default function App() {
       Alert.alert('Thiếu thông tin', 'Vui lòng nhập ngày giờ và nội dung cần tư vấn.');
       return false;
     }
-    if (userXu < selectedMentorFee) {
+    // The PayOS webhook can credit the wallet while the app is in the background.
+    // Always check the server balance before deciding that another top-up is needed.
+    let availableXu = userXu;
+    try {
+      const accountResult = await Database.getCurrentUser();
+      const account = accountResult?.user || accountResult;
+      if (Number.isFinite(Number(account?.userXu))) {
+        availableXu = Number(account.userXu);
+        setUserXu(availableXu);
+        setCurrentUser(previous => ({ ...previous, ...account, userXu: availableXu }));
+      }
+    } catch {}
+    if (availableXu < selectedMentorFee) {
       setBookingDate(finalDate); setBookingTime(finalTime); setBookingNote(finalNote);
+      const shortage = selectedMentorFee - availableXu;
+      setTopUpAmount([50, 100, 200, 500].find(value => value >= shortage) || 500);
       setShowBookingModal(false);
       setShowTopUpModal(true);
       return false;
@@ -375,7 +389,7 @@ export default function App() {
       note: finalNote.trim()
     });
     if (bookingResult && bookingResult.success === false) {
-      Alert.alert('Khung giờ không khả dụng', bookingResult.msg);
+      Alert.alert('Không thể đặt lịch', bookingResult.msg);
       return false;
     }
     setShowBookingModal(false);

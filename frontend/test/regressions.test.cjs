@@ -27,6 +27,17 @@ test('PayOS payment is not shadowed by the package-selection screen', () => {
   assert.equal(vm.runInNewContext(guard, {showTopUpModal:true,showPayOSPayment:false}), true);
 });
 
+test('booking refreshes the authoritative wallet balance before requesting another top-up', () => {
+  const source = read('App.js');
+  const start = source.indexOf('const submitBooking = async');
+  const end = source.indexOf('const selectBookingDate = async', start);
+  const submitBooking = source.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  assert.match(submitBooking, /await Database\.getCurrentUser\(\)/);
+  assert.match(submitBooking, /availableXu < selectedMentorFee/);
+  assert.ok(submitBooking.indexOf('await Database.getCurrentUser()') < submitBooking.indexOf('availableXu < selectedMentorFee'));
+});
+
 test('PayOS QR is rendered inside the app without opening an external checkout', () => {
   const source = read('components/PayOSPayment.js');
   assert.match(source, /from 'react-native-qrcode-svg'/);
