@@ -317,42 +317,64 @@ function Availability({
           : item,
       ),
     );
-  const changeTime = (day, edge, text) => {
+  const changeTime = (day, rangeIndex, edge, text) => {
     const cleaned = text.replace(/[^0-9:]/g, "").slice(0, 5);
     setSlots((items) =>
       items.map((item) => {
         if (item.day !== day) return item;
         const [from = "18:00", to = "21:00"] = String(
-          item.ranges[0] || "18:00 - 21:00",
+          item.ranges[rangeIndex] || "18:00 - 21:00",
         )
           .split("-")
           .map((value) => value.trim());
+        const ranges = [...item.ranges];
+        ranges[rangeIndex] = edge === "from" ? `${cleaned} - ${to}` : `${from} - ${cleaned}`;
         return {
           ...item,
-          ranges: [edge === "from" ? `${cleaned} - ${to}` : `${from} - ${cleaned}`],
+          ranges,
         };
       }),
     );
   };
+  const addRange = (day) =>
+    setSlots((items) =>
+      items.map((item) =>
+        item.day === day
+          ? { ...item, ranges: [...item.ranges, item.ranges.length ? "08:00 - 09:00" : "18:00 - 21:00"] }
+          : item,
+      ),
+    );
+  const removeRange = (day, rangeIndex) =>
+    setSlots((items) =>
+      items.map((item) =>
+        item.day === day
+          ? { ...item, ranges: item.ranges.filter((_, index) => index !== rangeIndex) }
+          : item,
+      ),
+    );
   const save = () => {
-    const invalid = slots.find((item) => {
-      if (!item.ranges.length) return false;
-      const [from, to] = String(item.ranges[0])
-        .split("-")
-        .map((value) => value.trim());
-      const validTime = (value) => /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
-      if (!validTime(from) || !validTime(to)) return true;
-      const minutes = (value) => {
-        const [hour, minute] = value.split(":").map(Number);
-        return hour * 60 + minute;
-      };
-      return minutes(to) - minutes(from) < 60;
-    });
+    const validTime = (value) => /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+    const minutes = (value) => {
+      const [hour, minute] = value.split(":").map(Number);
+      return hour * 60 + minute;
+    };
+    const invalid = slots.find((item) => item.ranges.some((range) => {
+      const [from, to] = String(range).split("-").map((value) => value.trim());
+      return !validTime(from) || !validTime(to) || minutes(to) - minutes(from) < 60;
+    }));
     if (invalid) {
       Alert.alert(
         "Khung giờ chưa hợp lệ",
         `${invalid.day}: nhập giờ theo HH:mm và mở tối thiểu 60 phút.`,
       );
+      return;
+    }
+    const overlapping = slots.find((item) => {
+      const ordered = item.ranges.map((range) => range.split("-").map((value) => minutes(value.trim()))).sort((a, b) => a[0] - b[0]);
+      return ordered.some((range, index) => index > 0 && range[0] < ordered[index - 1][1]);
+    });
+    if (overlapping) {
+      Alert.alert("Khung giờ bị trùng", `${overlapping.day}: các khung giờ rảnh không được chồng lên nhau.`);
       return;
     }
     onSave();
@@ -361,7 +383,7 @@ function Availability({
     <ScrollView style={s.screen} contentContainerStyle={s.content}>
       <BackHeader title="Lịch rảnh" onBack={onBack} />
       <Text style={s.copy}>
-        Chọn ngày nhận booking. Lịch bận đã có sẽ luôn được máy chủ loại trừ.
+        Thiết lập lịch cố định hàng tuần hoặc thêm nhiều khung giờ rảnh cho từng thứ. Lịch bận đã có sẽ luôn được máy chủ loại trừ.
       </Text>
       <View style={s.card}>
         <View style={{ flex: 1 }}>
@@ -372,40 +394,34 @@ function Availability({
       </View>
       {slots.map((item) => {
         const enabled = item.ranges.length > 0;
-        const [from = "18:00", to = "21:00"] = String(
-          item.ranges[0] || "18:00 - 21:00",
-        )
-          .split("-")
-          .map((value) => value.trim());
         return (
         <View key={item.day} style={s.availabilityCard}>
-          <View style={{ flex: 1 }}>
-            <Text style={s.cardTitle}>{item.day}</Text>
-            {enabled ? (
-              <View style={s.timeRow}>
-                <TextInput
-                  value={from}
-                  onChangeText={(value) => changeTime(item.day, "from", value)}
-                  placeholder="18:00"
-                  keyboardType="numbers-and-punctuation"
-                  style={s.timeInput}
-                  accessibilityLabel={`Giờ bắt đầu ${item.day}`}
-                />
-                <Text style={s.timeSeparator}>đến</Text>
-                <TextInput
-                  value={to}
-                  onChangeText={(value) => changeTime(item.day, "to", value)}
-                  placeholder="21:00"
-                  keyboardType="numbers-and-punctuation"
-                  style={s.timeInput}
-                  accessibilityLabel={`Giờ kết thúc ${item.day}`}
-                />
-              </View>
-            ) : (
-              <Text style={s.copy}>Không nhận lịch</Text>
-            )}
+          <View style={s.dayHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.cardTitle}>{item.day}</Text>
+              <Text style={s.copy}>{enabled ? `${item.ranges.length} khung giờ rảnh` : "Không nhận lịch"}</Text>
+            </View>
+            <Switch value={enabled} onValueChange={(value) => toggle(item.day, value)} />
           </View>
-          <Switch value={enabled} onValueChange={(value) => toggle(item.day, value)} />
+            {enabled ? (
+              item.ranges.map((range, rangeIndex) => {
+                const [from = "18:00", to = "21:00"] = String(range).split("-").map((value) => value.trim());
+                return <View key={`${item.day}-${rangeIndex}`} style={s.timeRow}>
+                  <TextInput value={from} onChangeText={(value) => changeTime(item.day, rangeIndex, "from", value)} placeholder="18:00" keyboardType="numbers-and-punctuation" style={s.timeInput} accessibilityLabel={`Giờ bắt đầu ${item.day} khung ${rangeIndex + 1}`} />
+                  <Text style={s.timeSeparator}>đến</Text>
+                  <TextInput value={to} onChangeText={(value) => changeTime(item.day, rangeIndex, "to", value)} placeholder="21:00" keyboardType="numbers-and-punctuation" style={s.timeInput} accessibilityLabel={`Giờ kết thúc ${item.day} khung ${rangeIndex + 1}`} />
+                  <TouchableOpacity style={s.removeTime} onPress={() => removeRange(item.day, rangeIndex)} accessibilityLabel={`Xóa khung giờ ${rangeIndex + 1} ${item.day}`}>
+                    <Ionicons name="trash-outline" size={18} color={sharedTheme.error} />
+                  </TouchableOpacity>
+                </View>;
+              })
+            ) : (
+              null
+            )}
+          <TouchableOpacity style={s.addTime} onPress={() => addRange(item.day)}>
+            <Ionicons name="add-circle-outline" size={18} color={theme.secondary} />
+            <Text style={s.addTimeText}>Thêm lịch rảnh vào {item.day}</Text>
+          </TouchableOpacity>
         </View>
       );})}
       <TouchableOpacity disabled={saving} style={s.primary} onPress={save}>
@@ -483,6 +499,15 @@ const s = StyleSheet.create({
     marginTop: 9,
   },
   cardTitle: { color: theme.text, fontSize: 14, fontWeight: "900" },
+  availabilityCard: {
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 14,
+    padding: 13,
+    marginTop: 10,
+  },
+  dayHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
   timeInput: {
     width: 76,
     minHeight: 40,
@@ -498,6 +523,9 @@ const s = StyleSheet.create({
   },
   timeSeparator: { marginHorizontal: 8, color: theme.textSecondary, fontSize: 12 },
   timeRow: { flexDirection: "row", alignItems: "center", marginTop: 8 },
+  removeTime: { width: 38, height: 38, marginLeft: 8, alignItems: "center", justifyContent: "center", borderRadius: 9, backgroundColor: "rgba(255,102,124,.10)" },
+  addTime: { minHeight: 40, marginTop: 10, borderWidth: 1, borderStyle: "dashed", borderColor: theme.secondary, borderRadius: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
+  addTimeText: { color: theme.secondary, fontSize: 11, fontWeight: "900" },
   outline: {
     borderWidth: 1,
     borderColor: theme.secondary,

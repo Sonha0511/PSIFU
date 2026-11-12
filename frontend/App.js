@@ -42,6 +42,8 @@ import ChangePassword from './pages/ChangePassword';
 import ProfileSetup from './pages/ProfileSetup';
 import Onboarding from './pages/Onboarding';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { io } from 'socket.io-client';
+import { getAccessToken, SOCKET_URL } from './data/api';
 import { getRoleTheme, setActiveAppearance, setActiveRole } from './theme/roleTheme';
 
 const { width } = Dimensions.get('window');
@@ -65,6 +67,7 @@ const getAvailableTimeSlots = (date, occupiedTimes = [], openedSlots = []) => {
   });
 };
 const ALL_TERMS = ['Kỳ 1', 'Kỳ 2', 'Kỳ 3', 'Kỳ 4', 'Kỳ 5', 'Kỳ 6', 'Kỳ 7','Kỳ 8', 'Kỳ 9'];
+const mentorClientProfile = item => ({ id: item.email, email: item.email, name: item.fullName, role: item.specialty || 'Mentor PSIFU', avatar: item.avatarUrl || '👨‍🏫', bio: item.mentorBio || `Mentor chuyên môn ${item.specialty || 'đa ngành'}.`, post: 'Sẵn sàng hỗ trợ mentee.', courses: item.mentorCourses || [], availableSlots: item.mentorAvailability?.accepting === false ? [] : (item.mentorAvailability?.slots || []).flatMap(slot => slot.ranges || []), fee: Number(item.mentorFee || 50), rating:Number(item.rating || 0), sessionCount:Number(item.sessionCount || 0), reviews:item.reviews || [] });
 
 export default function App() {
   const systemAppearance = useColorScheme();
@@ -155,6 +158,23 @@ export default function App() {
     }).catch(() => Database.logout());
   }, []);
 
+  useEffect(() => {
+    if (!isLoggedIn || userRole === 'mentor' || currentTab !== 'mentor') return undefined;
+    let alive = true;
+    let socket;
+    const refreshMentors = () => Database.getMentors().then(users => {
+      if (alive) setMentorProfiles(users.map(mentorClientProfile));
+    }).catch(() => {});
+    refreshMentors();
+    (async () => {
+      const token = await getAccessToken();
+      if (!alive || !token) return;
+      socket = io(SOCKET_URL, { auth: { token }, reconnection: true, reconnectionDelay: 700, reconnectionDelayMax: 5000 });
+      socket.on('mentor:availability-updated', refreshMentors);
+    })().catch(() => {});
+    return () => { alive = false; socket?.disconnect(); };
+  }, [currentTab, isLoggedIn, userRole]);
+
   const finishOnboarding = async () => {
     await AsyncStorage.setItem('@psifu_has_seen_onboarding', 'true');
     setHasSeenOnboarding(true);
@@ -184,7 +204,7 @@ export default function App() {
     setShowOnboarding(false);
     setCurrentUser(user);
     setUserRole(user.role || 'mentee');
-    Database.getMentors().then(apply(users => setMentorProfiles(users.map(item => ({ id: item.email, email: item.email, name: item.fullName, role: item.specialty || 'Mentor PSIFU', avatar: item.avatarUrl || '👨‍🏫', bio: item.mentorBio || `Mentor chuyên môn ${item.specialty || 'đa ngành'}.`, post: 'Sẵn sàng hỗ trợ mentee.', courses: item.mentorCourses || [], availableSlots: item.mentorAvailability?.accepting === false ? [] : (item.mentorAvailability?.slots || []).flatMap(slot => slot.ranges || []), fee: Number(item.mentorFee || 50), rating:Number(item.rating || 0), sessionCount:Number(item.sessionCount || 0), reviews:item.reviews || [] }))))).catch(() => {});
+    Database.getMentors().then(apply(users => setMentorProfiles(users.map(mentorClientProfile)))).catch(() => {});
     Database.getBookings().then(apply(bookings => setMyBookings(user.role === 'mentor' ? bookings.filter(item => item.mentorEmail === user.email) : bookings.filter(item => item.menteeEmail === user.email)))).catch(() => {});
     (user.role === 'mentor' ? Database.getMentorDocuments(user.email) : Database.getPublishedMentorDocuments()).then(apply(setMentorDocuments)).catch(() => {});
     Database.getDocumentUnlocks(user.email).then(apply(ids => setUnlockedDocs(Object.fromEntries(ids.map(id => [id, true]))))).catch(() => {});
