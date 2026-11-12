@@ -67,7 +67,7 @@ const getAvailableTimeSlots = (date, occupiedTimes = [], openedSlots = []) => {
   });
 };
 const ALL_TERMS = ['Kỳ 1', 'Kỳ 2', 'Kỳ 3', 'Kỳ 4', 'Kỳ 5', 'Kỳ 6', 'Kỳ 7','Kỳ 8', 'Kỳ 9'];
-const mentorClientProfile = item => ({ id: item.email, email: item.email, name: item.fullName, role: item.specialty || 'Mentor PSIFU', avatar: item.avatarUrl || '👨‍🏫', bio: item.mentorBio || `Mentor chuyên môn ${item.specialty || 'đa ngành'}.`, post: 'Sẵn sàng hỗ trợ mentee.', courses: item.mentorCourses || [], availableSlots: item.mentorAvailability?.accepting === false ? [] : (item.mentorAvailability?.slots || []).flatMap(slot => slot.ranges || []), fee: Number(item.mentorFee || 50), rating:Number(item.rating || 0), sessionCount:Number(item.sessionCount || 0), reviews:item.reviews || [] });
+const mentorClientProfile = item => ({ id: item.email, email: item.email, name: item.fullName, university:item.university || '', major:item.major || '', role: item.specialty || 'Mentor PSIFU', avatar: item.avatarUrl || '👨‍🏫', bio: item.mentorBio || `Mentor chuyên môn ${item.specialty || 'đa ngành'}.`, credentials:item.mentorCredentials || '', resourceLinks:item.mentorResourceLinks || [], post: 'Sẵn sàng hỗ trợ mentee.', courses: item.mentorCourses || [], availableSlots: item.mentorAvailability?.accepting === false ? [] : (item.mentorAvailability?.slots || []).flatMap(slot => slot.ranges || []), fee: Number(item.mentorFee || 50), rating:Number(item.rating || 0), sessionCount:Number(item.sessionCount || 0), reviews:item.reviews || [] });
 
 export default function App() {
   const systemAppearance = useColorScheme();
@@ -185,12 +185,6 @@ export default function App() {
     { id: 'b1', title: '🚀 Bí kíp qua môn siêu tốc', desc: 'Chia sẻ từ Thủ khoa khóa trước', bg: '#0284c7' },
     { id: 'b2', title: '🔥 Đợt tuyển Mentor Tháng 7', desc: 'Đăng ký ngay để nhận đặc quyền VIP', bg: '#7c3aed' },
     { id: 'b3', title: '💎 Gói Premium PSIFU', desc: 'Mở khóa toàn bộ kho tài liệu Mentor', bg: '#b45309' },
-  ];
-
-  // Dữ liệu mẫu danh sách Mentor
-  const mentorData = [
-    { id: 'm1', name: 'Anh Trần Hải Nam', role: 'Software Engineer @ VinGroup', avatar: '👨‍💻', bio: 'Kinh nghiệm 4 năm chinh chiến OJT và làm đồ án tốt nghiệp xuất sắc ngành SE.', post: 'Kinh nghiệm săn học bổng doanh nghiệp và cách viết CV chuẩn chỉ cho sinh viên IT từ năm 2.' },
-    { id: 'm2', name: 'Chị Nguyễn Minh Thư', role: 'Data Analyst @ McKinsey', avatar: '👩‍💼', bio: 'Cựu sinh viên xuất sắc chuyên ngành Kinh doanh quốc tế, chuyên trị các môn Thống kê.', post: 'Lộ trình tự học SQL và Python từ con số 0 cho mọi khối ngành để đi thực tập sớm.' }
   ];
 
   const handleLoginSuccess = (user) => {
