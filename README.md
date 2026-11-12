@@ -14,6 +14,10 @@ Mã nguồn được tách thành hai ứng dụng độc lập:
 
 Backend tự khởi tạo bốn tài khoản mẫu lúc khởi chạy lần đầu: `admin@psifu.vn` / `admin123` và các tài khoản mentor (mật khẩu `mentor123`).
 
+## Đồng bộ FLM cho Quiz AI
+
+Đặt `FLM_SYNC_ENABLED=true`, `FLM_SESSION_COOKIE` từ một tài khoản FLM chuyên dụng và tùy chọn `FLM_SYNC_INTERVAL_HOURS=24` trong môi trường backend. Job chỉ tạo/cập nhật tài liệu ở trạng thái `DRAFT`; admin phải duyệt trước khi mentee nhìn thấy. Nội dung syllabus đã chuẩn hóa được lưu trong `sourceText` và Quiz AI chỉ dùng trường này làm ngữ cảnh. Có thể chạy thủ công bằng `node scripts/sync-flm-documents.js`. Khi phiên FLM hết hạn, job giữ nguyên dữ liệu cũ và ghi lỗi yêu cầu cập nhật cookie.
+
 ## MongoDB Atlas
 
 Backend là lớp duy nhất kết nối MongoDB; mobile và admin web chỉ gọi REST API. Để migrate dữ liệu local sang Atlas, đặt `ATLAS_MONGODB_URI` trong `backend/.env` (không commit URI), sau đó chạy:

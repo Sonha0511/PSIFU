@@ -5,6 +5,7 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -24,10 +25,11 @@ const DAYS = [
   "Thứ Bảy",
   "Chủ Nhật",
 ];
-const defaultSlots = DAYS.map((day, index) => ({
-  day,
-  ranges: [],
-}));
+const normalizeSlots = (value = []) =>
+  DAYS.map((day) => {
+    const saved = value.find((item) => item.day === day);
+    return { day, ranges: Array.isArray(saved?.ranges) ? saved.ranges : [] };
+  });
 
 export default function MentorHub({ mentor, screen = "home", onNavigate, onAvailabilitySaved }) {
   const [view, setView] = useState(screen === "sessions" ? "sessions" : "home");
@@ -36,9 +38,7 @@ export default function MentorHub({ mentor, screen = "home", onNavigate, onAvail
     mentor?.mentorAvailability?.accepting ?? true,
   );
   const [slots, setSlots] = useState(
-    mentor?.mentorAvailability?.slots?.length
-      ? mentor.mentorAvailability.slots
-      : defaultSlots,
+    normalizeSlots(mentor?.mentorAvailability?.slots),
   );
   const [saving, setSaving] = useState(false);
   const loadBookings = async () => {
@@ -58,9 +58,7 @@ export default function MentorHub({ mentor, screen = "home", onNavigate, onAvail
   useEffect(() => {
     setAccepting(mentor?.mentorAvailability?.accepting ?? true);
     setSlots(
-      mentor?.mentorAvailability?.slots?.length
-        ? mentor.mentorAvailability.slots
-        : defaultSlots,
+      normalizeSlots(mentor?.mentorAvailability?.slots),
     );
   }, [mentor?.mentorAvailability]);
   const active = useMemo(
@@ -311,14 +309,54 @@ function Availability({
   saving,
   onBack,
 }) {
-  const toggle = (day) =>
+  const toggle = (day, enabled) =>
     setSlots((items) =>
       items.map((item) =>
         item.day === day
-          ? { ...item, ranges: item.ranges.length ? [] : ["18:00 - 21:00"] }
+          ? { ...item, ranges: enabled ? [item.ranges[0] || "18:00 - 21:00"] : [] }
           : item,
       ),
     );
+  const changeTime = (day, edge, text) => {
+    const cleaned = text.replace(/[^0-9:]/g, "").slice(0, 5);
+    setSlots((items) =>
+      items.map((item) => {
+        if (item.day !== day) return item;
+        const [from = "18:00", to = "21:00"] = String(
+          item.ranges[0] || "18:00 - 21:00",
+        )
+          .split("-")
+          .map((value) => value.trim());
+        return {
+          ...item,
+          ranges: [edge === "from" ? `${cleaned} - ${to}` : `${from} - ${cleaned}`],
+        };
+      }),
+    );
+  };
+  const save = () => {
+    const invalid = slots.find((item) => {
+      if (!item.ranges.length) return false;
+      const [from, to] = String(item.ranges[0])
+        .split("-")
+        .map((value) => value.trim());
+      const validTime = (value) => /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+      if (!validTime(from) || !validTime(to)) return true;
+      const minutes = (value) => {
+        const [hour, minute] = value.split(":").map(Number);
+        return hour * 60 + minute;
+      };
+      return minutes(to) - minutes(from) < 60;
+    });
+    if (invalid) {
+      Alert.alert(
+        "Khung giờ chưa hợp lệ",
+        `${invalid.day}: nhập giờ theo HH:mm và mở tối thiểu 60 phút.`,
+      );
+      return;
+    }
+    onSave();
+  };
   return (
     <ScrollView style={s.screen} contentContainerStyle={s.content}>
       <BackHeader title="Lịch rảnh" onBack={onBack} />
@@ -332,24 +370,45 @@ function Availability({
         </View>
         <Switch value={accepting} onValueChange={setAccepting} />
       </View>
-      {slots.map((item) => (
-        <TouchableOpacity
-          key={item.day}
-          style={s.card}
-          onPress={() => toggle(item.day)}
-        >
+      {slots.map((item) => {
+        const enabled = item.ranges.length > 0;
+        const [from = "18:00", to = "21:00"] = String(
+          item.ranges[0] || "18:00 - 21:00",
+        )
+          .split("-")
+          .map((value) => value.trim());
+        return (
+        <View key={item.day} style={s.availabilityCard}>
           <View style={{ flex: 1 }}>
             <Text style={s.cardTitle}>{item.day}</Text>
-            <Text style={s.copy}>
-              {item.ranges.length ? item.ranges.join(", ") : "Không nhận lịch"}
-            </Text>
+            {enabled ? (
+              <View style={s.timeRow}>
+                <TextInput
+                  value={from}
+                  onChangeText={(value) => changeTime(item.day, "from", value)}
+                  placeholder="18:00"
+                  keyboardType="numbers-and-punctuation"
+                  style={s.timeInput}
+                  accessibilityLabel={`Giờ bắt đầu ${item.day}`}
+                />
+                <Text style={s.timeSeparator}>đến</Text>
+                <TextInput
+                  value={to}
+                  onChangeText={(value) => changeTime(item.day, "to", value)}
+                  placeholder="21:00"
+                  keyboardType="numbers-and-punctuation"
+                  style={s.timeInput}
+                  accessibilityLabel={`Giờ kết thúc ${item.day}`}
+                />
+              </View>
+            ) : (
+              <Text style={s.copy}>Không nhận lịch</Text>
+            )}
           </View>
-          <Text style={item.ranges.length ? s.ok : s.pending}>
-            {item.ranges.length ? "BẬT" : "TẮT"}
-          </Text>
-        </TouchableOpacity>
-      ))}
-      <TouchableOpacity disabled={saving} style={s.primary} onPress={onSave}>
+          <Switch value={enabled} onValueChange={(value) => toggle(item.day, value)} />
+        </View>
+      );})}
+      <TouchableOpacity disabled={saving} style={s.primary} onPress={save}>
         <Text style={s.primaryText}>
           {saving ? "ĐANG LƯU..." : "LƯU LỊCH RẢNH"}
         </Text>
@@ -424,6 +483,21 @@ const s = StyleSheet.create({
     marginTop: 9,
   },
   cardTitle: { color: theme.text, fontSize: 14, fontWeight: "900" },
+  timeInput: {
+    width: 76,
+    minHeight: 40,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 8,
+    backgroundColor: theme.surfaceElevated,
+    color: theme.text,
+    fontSize: 14,
+    fontWeight: "800",
+    textAlign: "center",
+    paddingHorizontal: 8,
+  },
+  timeSeparator: { marginHorizontal: 8, color: theme.textSecondary, fontSize: 12 },
+  timeRow: { flexDirection: "row", alignItems: "center", marginTop: 8 },
   outline: {
     borderWidth: 1,
     borderColor: theme.secondary,
