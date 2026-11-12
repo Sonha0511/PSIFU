@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Image, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import MentorProfile from './MentorProfile';
 import DirectMessage from './DirectMessage';
@@ -14,7 +14,9 @@ export default function FindMentor({ mentors = [], courses = [], currentTerm, on
   const [selectedMentor, setSelectedMentor] = useState(null);
   const [showAll, setShowAll] = useState(false);
   const [chat,setChat]=useState(null);
-  const courseList = courses.filter(item => item.term === currentTerm).slice(0, compact ? 3 : 5);
+  const currentCourses = courses.filter(item => !item.term || item.term === currentTerm);
+  const otherCodes = [...new Set(mentors.flatMap(mentor => mentor.courses || []))].filter(code => !currentCourses.some(course => course.code === code));
+  const courseList = [...currentCourses, ...otherCodes.map(code => ({code,name:'Môn học ngoài kỳ hiện tại'}))].slice(0, showAll ? 30 : compact ? 5 : 8);
   const filtered = useMemo(() => mentors.filter(mentor => `${mentor.name} ${mentor.role} ${(mentor.courses || []).join(' ')}`.toLowerCase().includes(query.toLowerCase())), [mentors, query]);
   const recommended = (showAll ? filtered : filtered.slice(0, 3));
 
@@ -22,11 +24,11 @@ export default function FindMentor({ mentors = [], courses = [], currentTerm, on
   if (selectedMentor) { const booking=bookings.find(row=>row.mentorEmail===selectedMentor.id); return <MentorProfile mentor={selectedMentor} onBack={() => setSelectedMentor(null)} onBook={onBook} onChat={booking?()=>setChat(booking):undefined} />; }
 
   return <ScrollView style={s.screen} contentContainerStyle={[s.content,wide&&s.contentWide]} showsVerticalScrollIndicator={false}>
-    <View style={s.header}><View><Text style={s.title}>Mentor</Text><Text style={s.term}>⌁ {currentTerm || 'Semester 3'} · {currentUser?.specialization || currentUser?.major || 'Lộ trình của bạn'}</Text></View><View style={s.headerActions}><TouchableOpacity onPress={onNotifications}><Ionicons name="notifications-outline" size={19} color="#1D365E"/></TouchableOpacity><View style={s.headerAvatar}><Text style={s.headerAvatarText}>S</Text></View></View></View>
+    <View style={s.header}><View><Text style={s.title}>Mentor</Text><Text style={s.term}>⌁ {currentTerm || 'Semester 3'} · {currentUser?.specialization || currentUser?.major || 'Lộ trình của bạn'}</Text></View><View style={s.headerActions}><TouchableOpacity onPress={onNotifications}><Ionicons name="notifications-outline" size={19} color="#1D365E"/></TouchableOpacity><View style={s.headerAvatar}>{currentUser?.avatarUrl?<Image source={{uri:currentUser.avatarUrl}} style={{width:'100%',height:'100%'}}/>:<Text style={s.headerAvatarText}>{(currentUser?.fullName||'PS').split(' ').map(x=>x[0]).slice(-2).join('')}</Text>}</View></View></View>
     <Text style={s.subTitle}>Find a Mentor</Text><Text style={s.copy}>Chọn Course bạn cần hỗ trợ để kết nối gia sư phù hợp.</Text>
     <View style={s.search}><Ionicons name="search-outline" size={17} color="#6680A8"/><TextInput value={query} onChangeText={setQuery} placeholder="Tìm Course hoặc Mentor..." placeholderTextColor="#8796B0" style={s.input}/><TouchableOpacity onPress={() => {setQuery('');setShowAll(true);}} accessibilityLabel="Xóa bộ lọc, xem tất cả mentor"><Ionicons name="options-outline" size={18} color="#1558D8"/></TouchableOpacity></View>
 
-    <View style={s.rowTitle}><Text style={s.sectionTitle}>My Courses</Text><Text style={s.link}>{courseList.length} môn học kỳ này</Text></View>
+    <View style={s.rowTitle}><Text style={s.sectionTitle}>Môn học cần hỗ trợ</Text><TouchableOpacity onPress={()=>setShowAll(!showAll)}><Text style={s.link}>{showAll?'Thu gọn':'Khám phá mọi môn →'}</Text></TouchableOpacity></View>
     <View style={wide&&s.grid}>{courseList.map((item, index) => <View key={item.code} style={[s.course,wide&&s.gridItem,index === 0 && s.courseMain]}><View style={[s.courseIcon, index === 0 && s.courseIconMain]}><Text style={[s.courseInitial, index === 0 && { color: '#fff' }]}>{item.code.slice(0, 1)}</Text></View><View style={s.courseInfo}><View style={s.codeRow}><Text style={[s.courseCode, index === 0 && { color: '#fff' }]}>{item.code}</Text>{index === 0 ? <Text style={s.mentorCount}>{mentors.filter(mentor=>(mentor.courses||[]).includes(item.code)).length} Mentors</Text> : null}</View><Text numberOfLines={1} style={[s.courseName, index === 0 && { color: '#EAF2FF' }]}>{item.name || item.title || 'Môn học chuyên ngành'}</Text><Text style={[s.courseDetail, index === 0 && { color: '#CFE0FF' }]}>{index === 0 ? 'C/C++, Algorithms, Array, Pointer' : 'Mentor đã xác thực học phần'}</Text></View><TouchableOpacity onPress={() => {setQuery(item.code);setShowAll(true);}} style={[s.findButton, index === 0 && s.findButtonMain]}><Text style={[s.findButtonText, index === 0 && { color: '#1558D8' }]}>{index === 0 ? 'Tìm Mentor' : 'Tìm ›'}</Text></TouchableOpacity></View>)}</View>
 
     <View style={s.rowTitle}><Text style={s.sectionTitle}>Recommended Mentors</Text><TouchableOpacity onPress={() => setShowAll(!showAll)}><Text style={s.link}>{showAll ? 'Thu gọn' : 'Xem tất cả →'}</Text></TouchableOpacity></View>

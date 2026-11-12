@@ -15,20 +15,20 @@ test('legacy plaintext works but stored bcrypt hash cannot authenticate', async 
   assert.equal(await matchesPassword('correct-password', hash, bcrypt), true);
   assert.equal(await matchesPassword(hash, hash, bcrypt), false);
 });
-test('password change verifies current password and revokes older sessions atomically', async () => {
+test('authenticated password change revokes older sessions atomically', async () => {
   const user = {_id:'user1',password:await bcrypt.hash('old-password',4),sessionVersion:2};
   let update;
   const User = {findById:async()=>user,findOneAndUpdate:async(filter,patch)=>{assert.equal(filter.password,user.password);update=patch;return {...user,password:patch.$set.password,sessionVersion:3};}};
-  const result=await changePassword({User,bcrypt,userId:user._id,currentPassword:'old-password',newPassword:'new-password',rounds:4});
+  const result=await changePassword({User,bcrypt,userId:user._id,newPassword:'new-password',rounds:4});
   assert.equal(await bcrypt.compare('new-password',result.password),true);
   assert.equal(update.$inc.sessionVersion,1);
   assert.ok(update.$unset.otpHash !== undefined);
 });
-test('incorrect current password, unchanged password and concurrent update are rejected', async () => {
+test('unchanged password and concurrent update are rejected', async () => {
   let writes=0;
   const User={findById:async()=>({_id:'u',password:'old-password'}),findOneAndUpdate:async()=>{writes++;return null;}};
-  for(const [currentPassword,newPassword,status] of [['wrong','new-password',400],['old-password','old-password',400],['old-password','new-password',409]]) {
-    await assert.rejects(changePassword({User,bcrypt,userId:'u',currentPassword,newPassword,rounds:4}),e=>e.status===status);
+  for(const [newPassword,status] of [['old-password',400],['new-password',409]]) {
+    await assert.rejects(changePassword({User,bcrypt,userId:'u',newPassword,rounds:4}),e=>e.status===status);
   }
   assert.equal(writes,1);
 });

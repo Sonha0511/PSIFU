@@ -12,11 +12,11 @@ async function matchesPassword(input, stored, bcrypt) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-async function changePassword({ User, bcrypt, userId, currentPassword, newPassword, rounds = 10 }) {
+async function changePassword({ User, bcrypt, userId, newPassword, rounds = 10 }) {
   const fail = (status, message) => { throw Object.assign(new Error(message), { status }); };
   if (!validNewPassword(newPassword)) fail(400, 'Mật khẩu mới cần ít nhất 8 ký tự, tối đa 72 byte.');
   const user = await User.findById(userId);
-  if (!user || !await matchesPassword(currentPassword, user.password, bcrypt)) fail(400, 'Mật khẩu hiện tại chưa chính xác.');
+  if (!user) fail(404, 'Không tìm thấy tài khoản.');
   if (await matchesPassword(newPassword, user.password, bcrypt)) fail(400, 'Mật khẩu mới phải khác mật khẩu hiện tại.');
   const password = await bcrypt.hash(newPassword, rounds);
   const updated = await User.findOneAndUpdate({

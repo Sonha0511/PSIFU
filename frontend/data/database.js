@@ -3,6 +3,7 @@ import { clearAccessToken, request, setAccessToken } from './api';
 export const Database = {
   getAllUsers: () => request('/users'),
   getMentors: () => request('/mentors'),
+  updateMentorPortfolio: fields => request('/mentor-profile',{method:'PATCH',body:JSON.stringify(fields)}),
   getCourses: (term, major = 'Computing', specialization = '', track = '') => request(`/courses?term=${encodeURIComponent(term)}&major=${encodeURIComponent(major)}&specialization=${encodeURIComponent(specialization)}&track=${encodeURIComponent(track)}`),
   saveUser: async user => { try { return await request('/users', { method: 'POST', body: JSON.stringify(user) }); } catch (error) { return error.data || { success: false, msg: error.message }; } },
   checkLogin: async (email, password) => { try { const result=await request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }); if(result.accessToken)await setAccessToken(result.accessToken); return result; } catch (error) { return error.data || { success: false, msg: error.message }; } },
@@ -10,8 +11,8 @@ export const Database = {
   logout: () => clearAccessToken(),
   logoutAllDevices: async () => { const result=await request('/auth/logout-all', { method:'POST' }); await clearAccessToken(); return result; },
   getWalletHistory: () => request('/wallet/history'),
-  changePassword: async (currentPassword, newPassword) => {
-    const result = await request('/auth/password/change',{method:'POST',body:JSON.stringify({currentPassword,newPassword})});
+  changePassword: async newPassword => {
+    const result = await request('/auth/password/change',{method:'POST',body:JSON.stringify({newPassword})});
     await setAccessToken(result.accessToken);
     return result;
   },
@@ -22,6 +23,8 @@ export const Database = {
   updateUserData: async (email, fields) => { try { await request(`/users/${encodeURIComponent(email)}`, { method: 'PATCH', body: JSON.stringify(fields) }); return true; } catch { return false; } },
   updateUserRole: async (email, role) => { try { await request(`/users/${encodeURIComponent(email)}/role`, { method: 'PATCH', body: JSON.stringify({ role }) }); return true; } catch { return false; } },
   getAdminPayouts: status => request(`/admin/payouts${status ? `?status=${encodeURIComponent(status)}` : ''}`),
+  getAdminAnalytics: (from,to) => request(`/admin/analytics?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
+  getAdminTransactions: (from,to) => request(`/admin/transactions?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&limit=100`),
   updateAdminPayout: (payoutCode, payload) => request(`/admin/payouts/${encodeURIComponent(payoutCode)}`, { method:'PATCH', body:JSON.stringify(payload) }),
   getQuestions: () => request('/questions'), saveQuestion: question => request('/questions', { method: 'POST', body: JSON.stringify(question) }),
   getBookings: () => request('/bookings'),

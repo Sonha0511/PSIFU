@@ -38,6 +38,8 @@ export default function MentorProfileHub({ user, appearanceMode = "system", onAp
     user?.mentorCourses?.length ? user.mentorCourses : [],
   );
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || "");
+  const [credentials, setCredentials] = useState(user?.mentorCredentials || "");
+  const [resourceLinks, setResourceLinks] = useState((user?.mentorResourceLinks || []).join("\n"));
   const [saving, setSaving] = useState(false);
   const [courseInput,setCourseInput]=useState("");
   useEffect(() => {
@@ -45,6 +47,8 @@ export default function MentorProfileHub({ user, appearanceMode = "system", onAp
     setBio(user?.mentorBio || "");
     setCourses(user?.mentorCourses || []);
     setAvatarUrl(user?.avatarUrl || "");
+    setCredentials(user?.mentorCredentials || "");
+    setResourceLinks((user?.mentorResourceLinks || []).join("\n"));
   }, [user?.email]);
   if (page === "wallet")
     return (
@@ -107,8 +111,11 @@ export default function MentorProfileHub({ user, appearanceMode = "system", onAp
       fullName: name.trim(),
       mentorBio: bio.trim(),
       mentorCourses: courses,
+      mentorCredentials: credentials.trim(),
+      mentorResourceLinks: resourceLinks.split(/\n|,/).map(item=>item.trim()).filter(Boolean),
       avatarUrl,
     });
+    await Database.updateMentorPortfolio({mentorCredentials:credentials.trim(),mentorResourceLinks:resourceLinks.split(/\n|,/).map(item=>item.trim()).filter(Boolean)});
     setSaving(false);
     if (ok === false)
       return Alert.alert(
@@ -166,6 +173,10 @@ export default function MentorProfileHub({ user, appearanceMode = "system", onAp
           placeholderTextColor="#8A9BB5"
         />
         <Text style={s.counter}>{bio.length}/300 ký tự</Text>
+        <Label text="Bằng cấp & chứng chỉ" small />
+        <TextInput style={[s.input, s.bio]} value={credentials} onChangeText={setCredentials} multiline placeholder="Ví dụ: Thạc sĩ Khoa học máy tính · AWS Certified Developer" placeholderTextColor="#8A9BB5" />
+        <Label text="Đường dẫn tài liệu / portfolio" small />
+        <TextInput style={[s.input, s.bio]} value={resourceLinks} onChangeText={setResourceLinks} multiline autoCapitalize="none" placeholder={'Mỗi đường dẫn một dòng\nhttps://...'} placeholderTextColor="#8A9BB5" />
         <Label text="Môn học bạn hỗ trợ" />
         <TextInput style={s.input} value={courseInput} onChangeText={setCourseInput} placeholder="Mã môn khác, ví dụ MKT101" autoCapitalize="characters"/>
         <TouchableOpacity onPress={()=>{const code=courseInput.trim().toUpperCase();if(!/^[A-Z0-9_-]{2,20}$/.test(code))return Alert.alert('Mã môn không hợp lệ');setCourses(previous=>[...new Set([...previous,code])]);setCourseInput('')}}><Text style={s.copy}>＋ Thêm môn học</Text></TouchableOpacity>
@@ -250,6 +261,10 @@ export default function MentorProfileHub({ user, appearanceMode = "system", onAp
         ) : (
           <Text style={s.copy}>Chưa chọn môn học hỗ trợ.</Text>
         )}
+      </Section>
+      <Section title="Bằng cấp & học liệu">
+        <Text style={s.profileBio}>{credentials || "Mentor chưa cập nhật bằng cấp."}</Text>
+        {!!resourceLinks.trim() && <Text style={[s.copy,{marginTop:10}]}>{resourceLinks.split(/\n|,/).filter(Boolean).map(link=>`🔗 ${link.trim()}`).join('\n')}</Text>}
       </Section>
       <Section title="Mức phí cố vấn">
         <View style={s.adminFee}>

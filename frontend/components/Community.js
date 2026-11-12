@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Database } from '../data/database';
 import { io } from 'socket.io-client';
@@ -117,7 +117,7 @@ export default function Community({ university, currentTerm, fullName, fptK, cur
         const own = message.user === (fullName || currentUser?.fullName);
         const palette = ['#F59E0B', '#477BFF', '#8B5CF6', '#10B981'];
         return <View key={message._id || message.id || index} style={styles.roomMessage}>
-          <View style={[styles.roomAvatar, { backgroundColor: own ? '#2563EB' : palette[index % palette.length] }]}><Text style={styles.roomAvatarText}>{String(message.user || 'P').slice(0, 2).toUpperCase()}</Text></View>
+          <View style={[styles.roomAvatar, { backgroundColor: own ? '#2563EB' : palette[index % palette.length] }]}>{message.authorEmail==='cao.cam@psifu.online'?<Image source={require('../assets/community-fox-bot.png')} style={{width:'100%',height:'100%'}}/>:<Text style={styles.roomAvatarText}>{String(message.user || 'P').slice(0, 2).toUpperCase()}</Text>}</View>
           <View style={styles.roomMessageBody}><View style={styles.roomMessageMeta}><Text style={styles.roomUser}>{message.user}</Text><Text style={styles.roomTime}>{new Date(message.createdAt || Date.now()).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</Text></View><Text style={styles.roomMessageText}>{message.text}</Text>
             <View style={styles.reactions}><TouchableOpacity style={styles.reaction}><Text>👍</Text><Text style={styles.reactionCount}>{index % 2 ? '8' : '5'}</Text></TouchableOpacity><TouchableOpacity style={styles.reaction}><Text>💙</Text><Text style={styles.reactionCount}>{index % 2 ? '2' : '3'}</Text></TouchableOpacity>{index === 0 ? <TouchableOpacity><Text style={styles.replyText}>3 replies</Text></TouchableOpacity> : null}</View>
           </View>

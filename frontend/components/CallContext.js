@@ -6,6 +6,8 @@ import { getAccessToken, SOCKET_URL } from '../data/api';
 import JitsiSession from './JitsiSession';
 
 const CallContext = createContext({ startCall: () => {} });
+const CONNECT_TIMEOUT_MS = 10000;
+const CALL_ACK_TIMEOUT_MS = 12000;
 
 export const useCalls = () => useContext(CallContext);
 
@@ -21,9 +23,14 @@ export function CallProvider({ children }) {
   const connect = useCallback(async () => {
     const token = await getAccessToken();
     if (!token) { socketRef.current?.disconnect(); socketRef.current = null; tokenRef.current = null; return null; }
-    if (socketRef.current && tokenRef.current === token) return socketRef.current;
+    if (socketRef.current && tokenRef.current === token) {
+      if (!socketRef.current.connected) socketRef.current.connect();
+      return socketRef.current;
+    }
     socketRef.current?.disconnect();
-    const socket = io(SOCKET_URL, { transports: ['websocket'], auth: { token }, reconnection: true, reconnectionDelay: 700, reconnectionDelayMax: 5000 });
+    // Keep Socket.IO's polling -> websocket upgrade. Forcing websocket made calls
+    // fail completely on some mobile networks and reverse proxies.
+    const socket = io(SOCKET_URL, { auth: { token }, reconnection: true, reconnectionDelay: 700, reconnectionDelayMax: 5000, timeout: CONNECT_TIMEOUT_MS });
     socket.on('call:incoming', payload => setCall(current => current?.phase === 'meeting' ? current : { ...payload, phase: 'incoming' }));
     socket.on('call:accepted', payload => setCall(current => current?.callId === payload.callId ? { ...current, booking: payload.booking || current.booking, phase: 'meeting' } : current));
     socket.on('call:rejected', payload => setCall(current => current?.callId === payload.callId ? { ...current, phase: 'rejected' } : current));
@@ -47,12 +54,15 @@ export function CallProvider({ children }) {
     const socket = await connect();
     if (!socket) return { ok: false, message: 'Bạn cần đăng nhập lại để thực hiện cuộc gọi.' };
     return new Promise(resolve => {
+      let settled = false;
+      const finishRequest = result => { if (settled) return; settled = true; clearTimeout(ackTimer); resolve(result); };
+      const ackTimer = setTimeout(() => finishRequest({ ok: false, message: 'Không kết nối được máy chủ cuộc gọi. Vui lòng kiểm tra mạng rồi thử lại.' }), CALL_ACK_TIMEOUT_MS);
       socket.emit('call:initiate', { bookingId: booking.id || booking._id }, response => {
-        if (!response?.ok) return resolve({ ok: false, message: response?.message || 'Chưa thể bắt đầu cuộc gọi.' });
+        if (!response?.ok) return finishRequest({ ok: false, message: response?.message || 'Chưa thể bắt đầu cuộc gọi.' });
         setCall({ callId: response.callId, booking: response.booking || booking, peerName: response.peerName, displayName, phase: 'outgoing' });
         clearTimer();
         timeoutRef.current = setTimeout(() => setCall(current => current?.callId === response.callId ? { ...current, phase: 'missed' } : current), 30000);
-        resolve({ ok: true });
+        finishRequest({ ok: true });
       });
     });
   }, [connect]);
