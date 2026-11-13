@@ -103,6 +103,24 @@ test('mentor home never labels pending bookings as confirmed', () => {
   assert.equal(vm.runInNewContext(expression, {item:{status:'Đã xác nhận'}}), true);
 });
 
+test('document reading depends on persisted unlocks, never a zero-fee shortcut', () => {
+  const app = read('App.js');
+  const documents = read('components/MyDocuments.js');
+  assert.match(app, /unlocked=\{!!unlockedDocs\[selectedDocumentDetail\.id\]\}/);
+  assert.doesNotMatch(app, /Number\(selectedDocumentDetail\.fee \|\| 0\) === 0/);
+  assert.doesNotMatch(documents, /Number\(doc\.fee\s*\|\|\s*0\)\s*===\s*0/);
+});
+
+test('completed schedule details expose mentor ratings to both roles', () => {
+  const hub = read('components/BookingHub.js');
+  const detail = read('components/SessionDetail.js');
+  assert.match(hub, /onReview=\{\(\)=>\{/);
+  assert.match(detail, /completed&&currentUserRole==='MENTEE'/);
+  assert.match(detail, /completed&&currentUserRole==='MENTOR'&&booking\.rating\?\.score/);
+  assert.match(detail, /Đánh giá Mentor/);
+  assert.match(detail, /Đánh giá từ Mentee/);
+});
+
 test('role theme is installed before the application screen tree', () => {
   const entry = read('index.js');
   assert.ok(entry.indexOf("./theme/installRoleTheming") < entry.indexOf("./AppRoot"));
