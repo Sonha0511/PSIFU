@@ -40,7 +40,7 @@ export const Database = {
   getSubscription: email => request(`/premium/subscription/${encodeURIComponent(email)}`),
   activatePremiumMock: email => request('/premium/mock-payment/complete', { method: 'POST', body: JSON.stringify({ email }) }),
   requestQuizAccess: email => request('/quiz/access', { method: 'POST', body: JSON.stringify({ email }) }),
-  generateQuiz: documentId => request('/quiz/generate', { method: 'POST', body: JSON.stringify({ documentId }) }),
+  generateQuiz: (documentId,difficulty,count=50) => request('/quiz/generate', { method: 'POST', timeoutMs:90000, body: JSON.stringify({ documentId,difficulty,count }) }),
   getPremiumDocuments: email => request(`/premium/documents/${encodeURIComponent(email)}`),
   getNotifications: email => request(`/notifications/${encodeURIComponent(email)}`),
   markNotificationRead: id => request(`/notifications/${id}/read`, { method: 'PATCH' }),

@@ -23,7 +23,7 @@ import DocumentReader from './components/DocumentReader';
 import MyDocuments from './components/MyDocuments';
 import MyCourses from './components/MyCourses';
 import Notifications from './components/Notifications';
-import QuizScreen from './components/QuizScreen';
+import QuizScreen from './components/QuizScreenV2';
 import ProfileHub from './components/ProfileHub';
 import MentorInbox from './components/MentorInbox';
 import MentorMessages from './components/MentorMessages';
@@ -355,7 +355,7 @@ export default function App() {
     return success;
   };
 
-  const openAiQuiz = async doc => { try { const result=await Database.generateQuiz(doc.id||doc._id); setSelectedQuizDocument({...doc,aiQuestions:result.questions||[],quizRemaining:result.remaining}); } catch(error) { Alert.alert('Chưa tạo được Mock Exam',error?.data?.msg||error?.message||'Vui lòng kiểm tra tài liệu đã mở khóa và thử lại.'); } };
+  const openAiQuiz = doc => setSelectedQuizDocument(doc);
 
   const handleBuyPremium = () => Alert.alert('PSIFU Premium', 'Thanh toán Premium đang được hoàn thiện. Bạn vẫn có thể nạp Xu và mở khóa tài liệu Mentor qua PayOS.');
 
@@ -468,7 +468,7 @@ export default function App() {
   if (showChangePassword) return <SafeAreaView style={[styles.container, styles.lightContainer]}><ChangePassword email={email} onBack={() => setShowChangePassword(false)} onForgot={() => Alert.alert('Xác minh bằng email','Bạn sẽ đăng xuất để đặt lại mật khẩu qua email.',[{text:'Ở lại',style:'cancel'},{text:'Tiếp tục',onPress:async()=>{await handleLogout();setShowChangePassword(false);setLoginPrefillEmail(email);setAuthScreen('resetVerify');}}])} /></SafeAreaView>;
   if (showNotifications) return <SafeAreaView style={[styles.container, styles.lightContainer]}><Notifications email={email} onBack={() => setShowNotifications(false)} /></SafeAreaView>;
 
-  if (selectedQuizDocument) return <SafeAreaView style={[styles.container, styles.lightContainer]}><QuizScreen document={selectedQuizDocument} onBack={() => setSelectedQuizDocument(null)} onComplete={() => setSelectedQuizDocument(null)} /><ToastNotice notice={notice} onClose={() => setNotice(null)} /></SafeAreaView>;
+  if (selectedQuizDocument) return <SafeAreaView style={[styles.container, styles.lightContainer]}><QuizScreen document={selectedQuizDocument} onGenerate={(difficulty,count)=>Database.generateQuiz(selectedQuizDocument.id||selectedQuizDocument._id,difficulty,count)} onBack={() => setSelectedQuizDocument(null)} onComplete={() => setSelectedQuizDocument(null)} /><ToastNotice notice={notice} onClose={() => setNotice(null)} /></SafeAreaView>;
 
   if (selectedDocumentReader) return <SafeAreaView style={[styles.container, styles.lightContainer]}><DocumentReader document={selectedDocumentReader} activity={documentActivity[selectedDocumentReader.id] || {}} onActivity={patch=>saveDocumentActivity(selectedDocumentReader.id,patch)} onBack={() => setSelectedDocumentReader(null)} onQuiz={() => openAiQuiz(selectedDocumentReader)} /><ToastNotice notice={notice} onClose={() => setNotice(null)} /></SafeAreaView>;
   if (selectedDocumentDetail) return <SafeAreaView style={[styles.container, styles.lightContainer]}><DocumentDetail document={selectedDocumentDetail} unlocked={!!unlockedDocs[selectedDocumentDetail.id]} rating={documentActivity[selectedDocumentDetail.id]?.rating || 0} saved={!!documentActivity[selectedDocumentDetail.id]?.saved} onSave={saved=>saveDocumentActivity(selectedDocumentDetail.id,{saved})} onBack={() => setSelectedDocumentDetail(null)} onUnlock={() => handleUnlockDoc(selectedDocumentDetail)} onRead={() => openDocumentReader(selectedDocumentDetail)} onQuiz={() => openAiQuiz(selectedDocumentDetail)} onRate={(rating) => handleRateDocument(selectedDocumentDetail.id, rating)} /><ToastNotice notice={notice} onClose={() => setNotice(null)} /></SafeAreaView>;

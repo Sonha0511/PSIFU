@@ -121,6 +121,18 @@ test('completed schedule details expose mentor ratings to both roles', () => {
   assert.match(detail, /Đánh giá từ Mentee/);
 });
 
+test('AI mock exam delegates Easy Medium Hard and exactly 50 questions to Gemini', () => {
+  const app = read('App.js');
+  const screen = read('components/QuizScreenV2.js');
+  const database = read('data/database.js');
+  assert.match(app, /components\/QuizScreenV2/);
+  assert.match(screen, /onGenerate\(difficulty,50\)/);
+  assert.match(screen, /Easy/);
+  assert.match(screen, /Medium/);
+  assert.match(screen, /Hard/);
+  assert.match(database, /timeoutMs:90000/);
+});
+
 test('role theme is installed before the application screen tree', () => {
   const entry = read('index.js');
   assert.ok(entry.indexOf("./theme/installRoleTheming") < entry.indexOf("./AppRoot"));
