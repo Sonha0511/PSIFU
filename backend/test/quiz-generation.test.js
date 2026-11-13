@@ -27,3 +27,9 @@ test('source is divided into five balanced Gemini batches', () => {
   assert.equal(chunks.length, 5);
   assert.deepEqual(chunks.map((chunk) => chunk.length), [6000, 6000, 6000, 6000, 6000]);
 });
+
+test('server provides an actionable message when AI quota is exhausted', () => {
+  const server = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'src', 'server.js'), 'utf8');
+  assert.match(server, /demo\.mentee@psifu\.online'\?50/);
+  assert.match(server, /Bạn đã dùng hết \$\{limit\} lượt tạo AI Mock Exam/);
+});
