@@ -583,13 +583,13 @@ const postCompanionMessage=async()=>{try{const recent=await ChatMessage.aggregat
 const scheduleCommunityCompanion=()=>{if(process.env.COMMUNITY_COMPANION_ENABLED==='false')return;setTimeout(postCompanionMessage,30000).unref();};
 const ensurePublishedAppRelease=async()=>{
  const release=await AppRelease.findOneAndUpdate(
-  {version:'1.0.4',platform:'android'},
+  {version:'1.0.5',platform:'android'},
   {$set:{
-   apkUrl:'https://github.com/Sonha0511/PSIFU/releases/download/v1.0.4/PSIFU-v1.0.4-build11.apk',
-   fileSizeBytes:148811943,
-   sha256:'eea7a1ce617bd9f5b3a878d1fcb85094fa4b7b700fb2cbcf038962cee28af5fb',
-   releaseNotes:['Bổ sung hồ sơ mentor thật và lịch rảnh nhiều khung giờ linh hoạt.','Cải thiện trang quản trị và dữ liệu vận hành.','Duy trì signaling cuộc gọi xác thực và phòng Jitsi cho lịch mentoring đã xác nhận.','Đồng bộ bản web, Android và backend phát hành.'],
-   minSupportedVersion:'1.0.0',isForcedUpdate:false,status:'PUBLISHED',publishedAt:new Date('2026-11-13T00:25:21.000Z')
+   apkUrl:'https://github.com/Sonha0511/PSIFU/releases/download/v1.0.5/PSIFU-v1.0.5-build12.apk',
+   fileSizeBytes:148812615,
+   sha256:'b13ac9e52f3f94144b828429aa0dd98b1f58246c51a38b62e09dbdeaf62920fa',
+   releaseNotes:['Đồng bộ trạng thái booking realtime giữa Mentee và Mentor trên mọi màn hình.','Khôi phục kho Tài liệu và quyền đọc học liệu đã mở khóa.','Thêm AI Mock Exam từ nội dung tài liệu Mentor.','Cuộc gọi video không yêu cầu đăng nhập Jitsi.','Chuẩn bị dữ liệu và tài khoản demo cho buổi trình bày.'],
+   minSupportedVersion:'1.0.0',isForcedUpdate:false,status:'PUBLISHED',publishedAt:new Date('2026-11-13T02:18:00.000Z')
   }},
   {upsert:true,new:true,setDefaultsOnInsert:true}
  );
