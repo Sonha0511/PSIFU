@@ -575,13 +575,13 @@ const companionMessages=[
 const postCompanionMessage=async()=>{try{const recent=await ChatMessage.aggregate([{$match:{authorEmail:{$ne:'cao.cam@psifu.online'},roomId:{$not:/^(booking-chat-|mentor-chat-)/}}},{$sort:{createdAt:-1}},{$group:{_id:'$roomId',last:{$first:'$createdAt'}}},{$sort:{last:-1}},{$limit:4}]);const rooms=[...new Set(['fpt university::Fall 2026::general','mentor-community::general',...recent.map(row=>row._id)])];const roomId=rooms[Math.floor(Math.random()*rooms.length)];const previous=await ChatMessage.findOne({roomId,authorEmail:'cao.cam@psifu.online'}).sort({createdAt:-1});const choices=companionMessages.filter(text=>text!==previous?.text);const message=toClient(await ChatMessage.create({roomId,user:'Cáo Cam · PSIFU Bot',authorEmail:'cao.cam@psifu.online',role:'ADMIN',text:choices[Math.floor(Math.random()*choices.length)]}));io.to(roomId).emit('chat:message',message);}catch(error){console.error('Community companion:',error.message);}finally{const delay=(10+Math.random()*5)*60*1000;setTimeout(postCompanionMessage,delay).unref();}};
 const scheduleCommunityCompanion=()=>{if(process.env.COMMUNITY_COMPANION_ENABLED==='false')return;setTimeout(postCompanionMessage,30000).unref();};
 const ensurePublishedAppRelease=()=>AppRelease.findOneAndUpdate(
- {version:'1.0.3',platform:'android'},
+ {version:'1.0.4',platform:'android'},
  {$set:{
-  apkUrl:'https://github.com/Sonha0511/PSIFU/releases/download/v1.0.3/PSIFU-v1.0.3-build9.apk',
-  fileSizeBytes:148803475,
-  sha256:'f51b10a54b54d48f995e562775773326b59a401f8c2aa5cf8fbe0f81d48838e8',
-  releaseNotes:['Sửa cuộc gọi video giữa ứng dụng Android và website.','Cải thiện kết nối realtime trên mạng di động và reverse proxy.','Đồng bộ trạng thái nhận, từ chối và kết thúc cuộc gọi.'],
-  minSupportedVersion:'1.0.0',isForcedUpdate:false,status:'PUBLISHED',publishedAt:new Date('2026-11-13T03:30:00.000Z')
+  apkUrl:'https://github.com/Sonha0511/PSIFU/releases/download/v1.0.4/PSIFU-v1.0.4-build11.apk',
+  fileSizeBytes:148811943,
+  sha256:'eea7a1ce617bd9f5b3a878d1fcb85094fa4b7b700fb2cbcf038962cee28af5fb',
+  releaseNotes:['Bổ sung hồ sơ mentor thật và lịch rảnh nhiều khung giờ linh hoạt.','Cải thiện trang quản trị và dữ liệu vận hành.','Duy trì signaling cuộc gọi xác thực và phòng Jitsi cho lịch mentoring đã xác nhận.','Đồng bộ bản web, Android và backend phát hành.'],
+  minSupportedVersion:'1.0.0',isForcedUpdate:false,status:'PUBLISHED',publishedAt:new Date('2026-11-13T00:25:21.000Z')
  }},
  {upsert:true,new:true,setDefaultsOnInsert:true}
 );
