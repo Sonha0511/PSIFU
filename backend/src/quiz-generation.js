@@ -49,4 +49,14 @@ function parseQuiz(text, expectedCount) {
   return questions;
 }
 
-module.exports = { DIFFICULTIES, normalizeDifficulty, quizPrompt, parseQuiz };
+function splitQuizContext(context, parts = 5) {
+  const source = String(context || '').trim();
+  const size = Math.ceil(source.length / parts);
+  return Array.from({ length: parts }, (_, index) => {
+    const start = index * size;
+    const end = Math.min(source.length, (index + 1) * size);
+    return source.slice(start, end).trim();
+  }).filter(Boolean);
+}
+
+module.exports = { DIFFICULTIES, normalizeDifficulty, quizPrompt, parseQuiz, splitQuizContext };

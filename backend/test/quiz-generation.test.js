@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { normalizeDifficulty, quizPrompt, parseQuiz } = require('../src/quiz-generation');
+const { normalizeDifficulty, quizPrompt, parseQuiz, splitQuizContext } = require('../src/quiz-generation');
 
 test('only supported AI difficulty levels are accepted', () => {
   assert.equal(normalizeDifficulty('Easy'), 'easy');
@@ -20,4 +20,10 @@ test('parser requires the complete requested exam', () => {
   const item = { question: 'Q?', options: ['A', 'B', 'C', 'D'], answerIndex: 1, explanation: 'Because' };
   assert.equal(parseQuiz(JSON.stringify({ questions: Array.from({ length: 50 }, () => item) }), 50).length, 50);
   assert.throws(() => parseQuiz(JSON.stringify({ questions: [item] }), 50), /1\/50/);
+});
+
+test('source is divided into five balanced Gemini batches', () => {
+  const chunks = splitQuizContext('x'.repeat(30000), 5);
+  assert.equal(chunks.length, 5);
+  assert.deepEqual(chunks.map((chunk) => chunk.length), [6000, 6000, 6000, 6000, 6000]);
 });
