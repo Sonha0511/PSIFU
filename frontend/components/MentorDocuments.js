@@ -155,7 +155,7 @@ export default function MentorDocuments({ mentor }) {
       }
       reset();
       setScreen("list");
-      Alert.alert("Đã lưu", "Tài liệu đã được lưu trên máy chủ.");
+      Alert.alert("Đã lưu", file ? "PDF đã được lưu và trích xuất nội dung cho AI Mock Exam." : "Tài liệu đã được lưu trên máy chủ.");
     } catch (error) {
       Alert.alert(
         "Không thể lưu",
