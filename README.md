@@ -12,7 +12,7 @@ Mã nguồn được tách thành hai ứng dụng độc lập:
 3. Trong `frontend`, sao chép `.env.example` thành `.env`, chỉnh `EXPO_PUBLIC_API_URL` cho phù hợp môi trường chạy.
 4. Chạy `npm install` và `npm start` trong `frontend`.
 
-Backend tự khởi tạo bốn tài khoản mẫu lúc khởi chạy lần đầu: `admin@psifu.vn` / `admin123` và các tài khoản mentor (mật khẩu `mentor123`).
+Backend tự đồng bộ danh mục mentor công khai nhưng không đặt mật khẩu dùng chung cho các hồ sơ thật. Để chuẩn bị môi trường trình diễn, chạy `npm run seed:demo` trong `backend` và xem tài khoản/kịch bản tại `DEMO-NGAY-14-11-2026.md`.
 
 ## Đồng bộ FLM cho Quiz AI
 

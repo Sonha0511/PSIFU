@@ -16,7 +16,7 @@ export default function BookingHub({bookings=[],onBack,onUpdate,menteeName,curre
  const blanks=new Date(month.getFullYear(),month.getMonth(),1).getDay(),count=new Date(month.getFullYear(),month.getMonth()+1,0).getDate(),grid=[...Array(blanks).fill(null),...Array.from({length:count},(_,i)=>new Date(month.getFullYear(),month.getMonth(),i+1))];
  const selected=(byDay[picked]||[]).filter(b=>`${b.course||''} ${b.mentorName||''} ${b.menteeName||''}`.toLowerCase().includes(search.toLowerCase()));
  const term=month.getMonth()<4?'Spring':month.getMonth()<8?'Summer':'Fall',close=()=>{setPicked(null);setSearch('')};
- if(chat)return <DirectMessage mentorName={chat.mentorName} mentorEmail={chat.mentorEmail} menteeName={chat.menteeName} currentUserName={menteeName} currentUserEmail={currentUserEmail} currentUserRole={currentUserRole} booking={chat} onBack={()=>setChat(null)}/>;
+ if(chat){const liveChat=bookings.find(x=>(x.id||x._id)===(chat.id||chat._id))||chat;return <DirectMessage mentorName={liveChat.mentorName} mentorEmail={liveChat.mentorEmail} menteeName={liveChat.menteeName} currentUserName={menteeName} currentUserEmail={currentUserEmail} currentUserRole={currentUserRole} booking={liveChat} onBack={()=>setChat(null)}/>;}
  if(detail)return <SessionDetail booking={bookings.find(x=>(x.id||x._id)===(detail.id||detail._id))||detail} currentUserRole={currentUserRole} displayName={menteeName} onUpdate={onUpdate} onBack={()=>setDetail(null)} onChat={()=>setChat(detail)}/>;
  if(review)return <Review booking={{...review,rating:ratings[review.id||review._id]||review.rating}} onSaved={r=>setRatings(x=>({...x,[review.id||review._id]:r}))} onBack={()=>setReview(null)}/>;
  return <View style={[s.screen,{backgroundColor:theme.background}]}>

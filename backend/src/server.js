@@ -178,6 +178,7 @@ const canSocketJoin = async (room, user) => {
 };
 const pendingCalls=new Map();
 const callClientBooking=booking=>({id:String(booking._id),_id:String(booking._id),mentorEmail:booking.mentorEmail,mentorName:booking.mentorName,menteeEmail:booking.menteeEmail,menteeName:booking.menteeName,course:booking.course,dateTime:booking.dateTime,status:booking.status});
+const emitBookingUpdate=(event,booking)=>{const payload=toClient(booking);for(const email of new Set([booking.mentorEmail,booking.menteeEmail].filter(Boolean)))io.to(`user:${email}`).emit(event,payload);};
 io.on('connection',socket=>{
   socket.join(`user:${socket.user.email}`);
   socket.on('chat:join',async(roomId,ack)=>{const room=String(roomId||'');try{const allowed=await canSocketJoin(room,socket.user);if(allowed)await socket.join(room);if(typeof ack==='function')ack({ok:allowed});}catch{if(typeof ack==='function')ack({ok:false});}});
@@ -244,7 +245,8 @@ const issueOtp = async (user, purpose) => { const code = crypto.randomInt(100000
 const validateOtp = (user, purpose, code) => user && user.otpPurpose === purpose && user.otpExpiresAt > new Date() && user.otpHash === hashOtp(String(code || ''));
 const quizPrompt = document => `Bạn là trợ giảng PSIFU. Tạo chính xác 5 câu trắc nghiệm bằng tiếng Việt, diễn đạt rõ ràng cho sinh viên, dựa CHỈ trên nội dung nguồn bên dưới. Không hỏi về URL, mã syllabus hay metadata kỹ thuật. Không bịa kiến thức ngoài nguồn. Nếu nguồn không đủ, trả JSON {"questions":[],"insufficientSource":true}.\n\nTài liệu: ${String(document.title||'').slice(0,180)}\nMôn học: ${String(document.course||'').slice(0,120)}\nNỘI DUNG NGUỒN:\n${quizContext(document)}\n\nChỉ trả JSON hợp lệ dạng {"questions":[{"question":"...","options":["...","...","...","..."],"answerIndex":0,"explanation":"Giải thích ngắn gọn dựa trên nguồn"}]}. answerIndex từ 0 đến 3. Không dùng markdown.`;
 const parseQuiz = text => { const clean=String(text||'').trim().replace(/^```json\s*/i,'').replace(/^```/,'').replace(/```$/,'').trim(); const quiz=JSON.parse(clean); if(!Array.isArray(quiz.questions)||quiz.questions.length<3)throw new Error('Gemini không trả về đủ câu hỏi.'); const questions=quiz.questions.slice(0,5).map(item=>({question:String(item.question||'').slice(0,600),options:Array.isArray(item.options)?item.options.slice(0,4).map(value=>String(value).slice(0,240)):[],answerIndex:Number(item.answerIndex),explanation:String(item.explanation||'').slice(0,800)})); if(questions.some(item=>!item.question||item.options.length!==4||!Number.isInteger(item.answerIndex)||item.answerIndex<0||item.answerIndex>3))throw new Error('Định dạng câu hỏi Gemini không hợp lệ.'); return questions; };
-const generateGeminiQuiz = async document => { if(!process.env.GEMINI_API_KEY)throw new Error('Quiz AI chưa được cấu hình GEMINI_API_KEY.'); const model=process.env.GEMINI_MODEL||'gemini-3.8-flash'; const response=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':process.env.GEMINI_API_KEY},body:JSON.stringify({contents:[{parts:[{text:quizPrompt(document)}]}],generationConfig:{responseMimeType:'application/json',temperature:0.35,maxOutputTokens:4096}})}); const payload=await response.json().catch(()=>({})); if(!response.ok)throw new Error(payload.error?.message||'Gemini không thể tạo Quiz lúc này.'); const text=payload.candidates?.[0]?.content?.parts?.map(part=>part.text||'').join('')||''; return parseQuiz(text); };
+const demoSourceQuiz=document=>String(document.course||'').toUpperCase()==='PRJ301'?[{question:'Trong mô hình MVC, thành phần nào tiếp nhận request và điều phối xử lý?',options:['Controller','View','Database','CSS'],answerIndex:0,explanation:'Controller tiếp nhận request, gọi tầng nghiệp vụ và chọn View.'},{question:'PreparedStatement được dùng chủ yếu để làm gì?',options:['Truyền tham số SQL an toàn','Tạo giao diện JSP','Khởi động server','Biên dịch JavaScript'],answerIndex:0,explanation:'PreparedStatement truyền tham số an toàn và giảm rủi ro SQL injection.'},{question:'JSP phù hợp nhất với vai trò nào trong MVC?',options:['View','Controller','Database driver','Web server'],answerIndex:0,explanation:'JSP đảm nhiệm phần hiển thị dữ liệu.'},{question:'Servlet thường chuyển dữ liệu sang đâu để hiển thị?',options:['JSP','CSS','JDK','Git'],answerIndex:0,explanation:'Servlet xử lý request rồi forward dữ liệu sang JSP.'},{question:'Lợi ích chính của việc tách MVC là gì?',options:['Tách trách nhiệm và dễ bảo trì','Xóa nhu cầu kiểm thử','Không cần database','Không cần xác thực'],answerIndex:0,explanation:'MVC tách Model, View và Controller để hệ thống dễ phát triển và bảo trì.'}]:[{question:'Big-O mô tả điều gì?',options:['Tốc độ tăng tài nguyên theo kích thước đầu vào','Tên một cấu trúc dữ liệu','Giá trị của biến','Số dòng mã nguồn'],answerIndex:0,explanation:'Big-O mô tả tốc độ tăng của thời gian hoặc bộ nhớ.'},{question:'Stack tuân theo nguyên tắc nào?',options:['LIFO','FIFO','Ngẫu nhiên','Ưu tiên nhỏ nhất'],answerIndex:0,explanation:'Stack là vào sau ra trước — LIFO.'},{question:'Queue tuân theo nguyên tắc nào?',options:['FIFO','LIFO','Chia để trị','Đệ quy'],answerIndex:0,explanation:'Queue là vào trước ra trước — FIFO.'},{question:'Binary search yêu cầu dữ liệu như thế nào?',options:['Đã sắp xếp','Không trùng lặp','Chỉ gồm số nguyên','Nằm trong linked list'],answerIndex:0,explanation:'Binary search cần dữ liệu đã sắp xếp.'},{question:'Độ phức tạp thời gian của binary search là gì?',options:['O(log n)','O(n²)','O(2ⁿ)','O(n!)'],answerIndex:0,explanation:'Mỗi bước loại bỏ một nửa không gian tìm kiếm nên có O(log n).'}];
+const generateGeminiQuiz = async document => { if(!process.env.GEMINI_API_KEY){if(document.mentorEmail==='demo.mentor@psifu.online')return demoSourceQuiz(document);throw new Error('Quiz AI chưa được cấu hình GEMINI_API_KEY.');} const model=process.env.GEMINI_MODEL||'gemini-3.8-flash'; const response=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':process.env.GEMINI_API_KEY},body:JSON.stringify({contents:[{parts:[{text:quizPrompt(document)}]}],generationConfig:{responseMimeType:'application/json',temperature:0.35,maxOutputTokens:4096}})}); const payload=await response.json().catch(()=>({})); if(!response.ok)throw new Error(payload.error?.message||'Gemini không thể tạo Quiz lúc này.'); const text=payload.candidates?.[0]?.content?.parts?.map(part=>part.text||'').join('')||''; return parseQuiz(text); };
 // Sensitive financial/profile routes require a valid identity before their handlers run.
 app.use('/api/mentors/:email/bank-account',requireAuth,requireSelfOrAdmin());
 app.use('/api/payouts/:email',requireAuth,requireSelfOrAdmin());
@@ -458,6 +460,7 @@ app.post('/api/bookings', requireAuth, async (req,res) => {
       await Transaction.create([{userEmail:req.auth.email,type:'BOOKING_ESCROW',amount:-fee,status:'HELD',metadata:{bookingId:String(booking._id),mentorEmail}}],{session});
       result={success:true,booking:toClient(booking),userXu:charged.userXu};
     });
+    emitBookingUpdate('booking:created',result.booking);
     res.status(201).json(result);
   } catch(error) { if(error.status)return res.status(error.status).json({success:false,msg:error.message}); throw error; }
   finally { await session.endSession(); }
@@ -466,6 +469,7 @@ app.patch('/api/bookings/:id', requireAuth, async (req,res) => {
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({success:false});
   const session=await mongoose.startSession();
   const fail=(status,msg)=>{throw Object.assign(new Error(msg),{status});};
+  let updatedBooking;
   try {
     await session.withTransaction(async () => {
       const booking=await Booking.findById(req.params.id).session(session);
@@ -475,6 +479,7 @@ app.patch('/api/bookings/:id', requireAuth, async (req,res) => {
       const previous=booking.status;
       booking.status=req.body.status;
       await booking.save({session});
+      updatedBooking=booking;
       if (booking.fee>0 && [STATUS.cancelled,STATUS.completed].includes(booking.status)) {
         const refund=booking.status===STATUS.cancelled;
         const mentee=await User.findOneAndUpdate({email:booking.menteeEmail,escrowXu:{$gte:booking.fee}},{$inc:{escrowXu:-booking.fee,...(refund?{userXu:booking.fee}:{})}},{session,new:true});
@@ -486,11 +491,13 @@ app.patch('/api/bookings/:id', requireAuth, async (req,res) => {
         await Transaction.create([{userEmail:refund?booking.menteeEmail:booking.mentorEmail,type:refund?'BOOKING_REFUND':'BOOKING_RELEASE',amount:booking.fee,status:'SUCCESS',metadata:{bookingId:String(booking._id),previousStatus:previous}}],{session});
       }
     });
-    res.json({success:true});
+    if(!updatedBooking)updatedBooking=await Booking.findById(req.params.id);
+    emitBookingUpdate('booking:updated',updatedBooking);
+    res.json({success:true,booking:toClient(updatedBooking)});
   } catch(error) { if(error.status)return res.status(error.status).json({success:false,msg:error.message}); throw error; }
   finally { await session.endSession(); }
 });
-app.post('/api/bookings/:id/rating',requireAuth,async(req,res)=>{const booking=await Booking.findOne({_id:req.params.id,menteeEmail:req.auth.email});const score=Number(req.body.score);const comment=String(req.body.comment||'').trim();if(!booking)return res.status(404).json({success:false,msg:'Không tìm thấy lịch hẹn.'});if(booking.status!=='Đã hoàn thành')return res.status(409).json({success:false,msg:'Chỉ đánh giá sau khi buổi học hoàn thành.'});if(booking.rating?.score)return res.status(409).json({success:false,msg:'Buổi học này đã được đánh giá.'});if(!Number.isInteger(score)||score<1||score>5)return res.status(400).json({success:false,msg:'Vui lòng chọn từ 1 đến 5 sao.'});booking.rating={score,comment:comment.slice(0,1000),createdAt:new Date()};await booking.save();res.status(201).json({success:true,rating:booking.rating});});
+app.post('/api/bookings/:id/rating',requireAuth,async(req,res)=>{const booking=await Booking.findOne({_id:req.params.id,menteeEmail:req.auth.email});const score=Number(req.body.score);const comment=String(req.body.comment||'').trim();if(!booking)return res.status(404).json({success:false,msg:'Không tìm thấy lịch hẹn.'});if(booking.status!=='Đã hoàn thành')return res.status(409).json({success:false,msg:'Chỉ đánh giá sau khi buổi học hoàn thành.'});if(booking.rating?.score)return res.status(409).json({success:false,msg:'Buổi học này đã được đánh giá.'});if(!Number.isInteger(score)||score<1||score>5)return res.status(400).json({success:false,msg:'Vui lòng chọn từ 1 đến 5 sao.'});booking.rating={score,comment:comment.slice(0,1000),createdAt:new Date()};await booking.save();emitBookingUpdate('booking:updated',booking);res.status(201).json({success:true,rating:booking.rating,booking:toClient(booking)});});
 app.get('/api/chats/:roomId',requireAuth,requireChatParticipant,async(req,res)=>{
   const filter={roomId:{$in:req.chatRooms||[req.params.roomId]}};
   if(req.query.before && mongoose.isValidObjectId(req.query.before)) filter._id={$lt:req.query.before};

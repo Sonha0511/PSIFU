@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function DocumentDetail({document,unlocked,onBack,onUnlock,onRead,rating,onRate,saved,onSave}) {
+export default function DocumentDetail({document,unlocked,onBack,onUnlock,onRead,onQuiz,rating,onRate,saved,onSave}) {
   const [busy,setBusy]=useState(false);const lock=useRef(false);
   const run=async task=>{if(lock.current)return;lock.current=true;setBusy(true);try{await task()}catch(e){Alert.alert('Chưa thực hiện được',e.message||'Vui lòng thử lại.')}finally{lock.current=false;setBusy(false)}};
   return <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
@@ -13,6 +13,7 @@ export default function DocumentDetail({document,unlocked,onBack,onUnlock,onRead
     <Section title="Nội dung"><Text style={styles.copy}>{document.description||'Người đăng chưa cung cấp mô tả.'}</Text></Section>
     <Text style={styles.copy}>{unlocked?'Bạn có quyền đọc tài liệu này.':`Mở khóa với ${Number(document.fee||0)} Xu. Quyền đọc được lưu theo tài khoản.`}</Text>
     <TouchableOpacity disabled={busy} style={[styles.primary,busy&&{opacity:.5}]} onPress={()=>run(unlocked?onRead:onUnlock)}><Text style={styles.primaryText}>{busy?'ĐANG XỬ LÝ…':unlocked?'ĐỌC TÀI LIỆU':`MỞ KHÓA · ${Number(document.fee||0)} XU`}</Text></TouchableOpacity>
+    {unlocked&&<TouchableOpacity disabled={busy} style={styles.secondary} onPress={()=>run(()=>onQuiz(document))}><Ionicons name="sparkles" size={17} color="#1558D8"/><Text style={styles.secondaryText}>TẠO AI MOCK EXAM</Text></TouchableOpacity>}
     <Section title="Đánh giá của bạn" right={rating?`${rating}/5 sao`:'Chưa đánh giá'}>
       <Text style={styles.copy}>{unlocked?'Đánh giá được lưu vào tài khoản của bạn.':'Mở khóa để đánh giá tài liệu.'}</Text>
       <View style={styles.rateRow}>{[1,2,3,4,5].map(value=><TouchableOpacity key={value} accessibilityLabel={value+' sao'} disabled={!unlocked||busy} onPress={()=>run(()=>onRate(value))}><Ionicons name={value<=rating?'star':'star-outline'} size={30} color={unlocked?'#155EEF':'#94A3B8'}/></TouchableOpacity>)}</View>

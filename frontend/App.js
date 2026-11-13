@@ -175,6 +175,16 @@ export default function App() {
     return () => { alive = false; socket?.disconnect(); };
   }, [currentTab, isLoggedIn, userRole]);
 
+  useEffect(() => {
+    if (!isLoggedIn || !email || userRole === 'admin') return undefined;
+    let alive=true,socket;
+    const mergeBooking=booking=>{if(!alive||!booking)return;const belongs=userRole==='mentor'?booking.mentorEmail===email:booking.menteeEmail===email;if(!belongs)return;setMyBookings(rows=>[booking,...rows.filter(row=>(row.id||row._id)!==(booking.id||booking._id))]);};
+    const refreshBookings=()=>Database.getBookings().then(rows=>{if(alive)setMyBookings(rows.filter(item=>userRole==='mentor'?item.mentorEmail===email:item.menteeEmail===email));}).catch(()=>{});
+    (async()=>{const token=await getAccessToken();if(!alive||!token)return;socket=io(SOCKET_URL,{auth:{token},reconnection:true,reconnectionDelay:700,reconnectionDelayMax:5000});socket.on('booking:created',mergeBooking);socket.on('booking:updated',mergeBooking);socket.on('connect',refreshBookings);})().catch(()=>{});
+    const fallback=setInterval(refreshBookings,15000);
+    return()=>{alive=false;clearInterval(fallback);socket?.disconnect();};
+  },[isLoggedIn,email,userRole]);
+
   const finishOnboarding = async () => {
     await AsyncStorage.setItem('@psifu_has_seen_onboarding', 'true');
     setHasSeenOnboarding(true);
@@ -345,7 +355,7 @@ export default function App() {
     return success;
   };
 
-  const openAiQuiz = () => Alert.alert('Quiz AI chưa sẵn sàng', 'Tính năng tạo bài từ tài liệu chưa được nối hoàn chỉnh. Bạn không bị trừ lượt Quiz hoặc Xu.');
+  const openAiQuiz = async doc => { try { const result=await Database.generateQuiz(doc.id||doc._id); setSelectedQuizDocument({...doc,aiQuestions:result.questions||[],quizRemaining:result.remaining}); } catch(error) { Alert.alert('Chưa tạo được Mock Exam',error?.data?.msg||error?.message||'Vui lòng kiểm tra tài liệu đã mở khóa và thử lại.'); } };
 
   const handleBuyPremium = () => Alert.alert('PSIFU Premium', 'Thanh toán Premium đang được hoàn thiện. Bạn vẫn có thể nạp Xu và mở khóa tài liệu Mentor qua PayOS.');
 
@@ -727,6 +737,11 @@ export default function App() {
           <Ionicons name={currentTab === 'mentor' ? 'school' : 'school-outline'} size={20} color={currentTab === 'mentor' ? roleTheme.primary : roleTheme.textMuted} />
           <Text style={[styles.navLabel, {color:roleTheme.textMuted}, currentTab === 'mentor' && {color:roleTheme.primary}]}>{userRole === 'mentor' ? 'Sessions' : 'Mentor'}</Text>
         </TouchableOpacity>
+
+        {userRole !== 'mentor' && <TouchableOpacity style={styles.navItem} onPress={() => {setDocumentCourse(null);setCurrentTab('docs');}}>
+          <Ionicons name={currentTab === 'docs' ? 'documents' : 'documents-outline'} size={20} color={currentTab === 'docs' ? roleTheme.primary : roleTheme.textMuted} />
+          <Text style={[styles.navLabel, {color:roleTheme.textMuted}, currentTab === 'docs' && {color:roleTheme.primary}]}>Tài liệu</Text>
+        </TouchableOpacity>}
 
         <TouchableOpacity style={styles.navItem} onPress={() => setCurrentTab('schedule')}>
           <Ionicons name={currentTab === 'schedule' ? 'calendar' : 'calendar-outline'} size={20} color={currentTab === 'schedule' ? roleTheme.primary : roleTheme.textMuted} />
