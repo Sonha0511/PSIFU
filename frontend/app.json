@@ -3,7 +3,7 @@
     "name": "PSIFU",
     "slug": "psifu",
     "scheme": "psifu",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "light",
@@ -12,8 +12,8 @@
       "bundleIdentifier": "com.psifu.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSCameraUsageDescription": "PSIFU dùng camera cho phiên mentoring Jitsi.",
-        "NSMicrophoneUsageDescription": "PSIFU dùng microphone cho phiên mentoring Jitsi."
+        "NSCameraUsageDescription": "PSIFU dùng camera cho phiên mentoring trực tuyến.",
+        "NSMicrophoneUsageDescription": "PSIFU dùng microphone cho phiên mentoring trực tuyến."
       }
     },
     "android": {
