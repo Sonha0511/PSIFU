@@ -19,7 +19,7 @@ const main = async () => {
   await mongoose.connect(mongoUri,{serverSelectionTimeoutMS:15000});
   const db=mongoose.connection.db, password=await bcrypt.hash(PASSWORD,10);
   const users=db.collection('users'), bookings=db.collection('bookings'), documents=db.collection('mentordocuments');
-  for(const account of accounts) { const {_id,...profile}=account; await users.updateOne({email:account.email},{$set:{...profile,password,emailVerified:true,emailVerificationRequired:false,isFirstLogin:false,hasCheckedInToday:false,sessionVersion:0,demoSeed:SEED,updatedAt:now},$setOnInsert:{_id,createdAt:new Date('2026-10-16T02:00:00.000Z')}},{upsert:true}); }
+  for(const account of accounts) { const {_id,...profile}=account; await users.updateOne({email:account.email},{$set:{...profile,password,emailVerified:true,emailVerificationRequired:false,isFirstLogin:false,hasCheckedInToday:false,sessionVersion:0,aiQuizUsage:0,aiQuizUsagePeriod:'',demoSeed:SEED,updatedAt:now},$setOnInsert:{_id,createdAt:new Date('2026-10-16T02:00:00.000Z')}},{upsert:true}); }
 
   const docs=[
     {_id:id('691700000000000000000101'),title:'CSD201 — Cấu trúc dữ liệu và giải thuật: Ôn tập trọng tâm',course:'CSD201',term:'Kỳ 3',category:'Ôn thi',description:'Tổng hợp Big-O, linked list, stack, queue, tree và các thuật toán sắp xếp.',fee:0,previewPages:2,pages:28,status:'PUBLISHED',sourceText:'Big-O mô tả tốc độ tăng của thời gian hoặc bộ nhớ theo kích thước đầu vào. Stack tuân theo LIFO, queue tuân theo FIFO. Binary search cần dữ liệu đã sắp xếp và có độ phức tạp O(log n).',aiSummary:'Tài liệu ôn tập nhanh CSD201, phù hợp để minh họa Quiz AI.',fileUri:'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf'},
